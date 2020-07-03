@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pyteomics import fasta
 import gzip
-import seaborn as sns
+#import seaborn as sns
 from scipy.stats import binom
 import math
 import random
@@ -17,9 +17,8 @@ from scipy.stats import chisquare
 
 #набор функции для построения базы модифицированных интервалов
 #для экспериментальных наборов данных
-a='chi2'
-path_FASTA='/home/vikalin/Article/HUMAN.fasta.gz'
-background_type='FASTA'
+#path_FASTA='/home/vikalin/Article/HUMAN.fasta.gz'
+#background_type='FASTA'
 # print('Название исследуемого набора данных:')
 name_sample='example'
 # print('Название организма:')
@@ -31,13 +30,45 @@ modification='PHOSPHORYLATION'
 # print('Введите сайт модификации:')
 modification_site='S'
 
+working_dir='C:/Users/Лиля/Documents'
+algorithm='binom'
+
+#создание папки для сохранения исходных данных
+def saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm): 
+    sample_saving_dir = os.path.join(working_dir,name_sample)
+    results_saving_dir = os.path.join(sample_saving_dir,modification+'_'+
+    modification_site+str(interval_length)+'_'+algorithm)
+    if not (os.path.exists(sample_saving_dir)):
+        os.mkdir(sample_saving_dir)
+        if not (os.path.exists(results_saving_dir)):
+            os.mkdir(results_saving_dir)
+    else:
+        if not (os.path.exists(results_saving_dir)):
+            os.mkdir(results_saving_dir)
+    return  sample_saving_dir,results_saving_dir
+
+sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm)    
+
+#загрузка FASTA
+path_FASTA=os.path.join(sample_saving_dir,'HUMAN.fasta')
+
+if not os.path.isfile(path_FASTA):
+    print ('Downloading the FASTA file for HUMAN')
+    urlretrieve(
+        'https://www.uniprot.org/uniprot/?query=*&format=fasta&force=true&fil=organism:%22Homo%20sapiens%20(Human)%20[9606]%22%20AND%20reviewed:yes',
+        path_FASTA)
+    print ('Done!')
+else:
+    print('FASTA file for HUMAN already exists!')   
+
+experimental_dir=os.path.join(sample_saving_dir,'dataset.xls')
 
 #загружаем таблицу модифицированных пептидов
-if not os.path.isfile('/home/vikalin/Article/dataset.xls'):
+if not os.path.isfile(experimental_dir):
     print ('Downloading the dataset')
     urlretrieve(
         'https://www.pnas.org/content/pnas/suppl/2004/08/06/0404720101.DC1/04720Table3.xls',
-        '/home/vikalin/Article/dataset.xls')
+        experimental_dir)
     print ('Done!')
 else:
     print('XLS file for dataset already exists!')
@@ -45,9 +76,9 @@ else:
 
 
 #создаем таблицу пептидов на вход в программу
-xl = pd.ExcelFile('/home/vikalin/Article/dataset.xls')
+xl = pd.ExcelFile(experimental_dir)
 df1 = xl.parse('Sheet1')
-df1.columns=df1.loc[0]
+df1.columns=df1.values[0]
 df=df1.drop(0)
 Peptides=((df.loc[df['Amb?'] == 'UNIQUE']).reset_index()).loc[:,df.columns.intersection(['Peptide']) ]
 indexes=[elem.replace('*','') for elem in Peptides['Peptide']]
@@ -63,12 +94,12 @@ print('Peptides',Peptides)
 
 
 #поиск белков, соответствующих данным пептидам
-def peptide_identification(path_FASTA,Peptides,path_sample):
+def peptide_identification(path_FASTA,Peptides,sample_saving_dir):
     print ('Identification of peptides')
-    path_identificated_peptides=path_sample+'/'+'peptide_identification.csv'
+    path_identificated_peptides=os.path.join(sample_saving_dir,'peptide_identification.csv')
     if not os.path.isfile(path_identificated_peptides):
         FASTA_dict=dict()
-        for description, sequence in fasta.read(gzip.open(path_FASTA,'rt')):
+        for description, sequence in fasta.read(open(path_FASTA)):
             FASTA_dict[sequence]=description
         for elem in Peptides.index:
             print(elem)
@@ -157,18 +188,18 @@ def interval_maker_experimental(idPeptides,interval_length,modification_site):
 
 
 #формирование набора интервалов
-def mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,path_sample):
+def mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir):
     print('Making intervals DB')
-    idPeptides=peptide_identification(path_FASTA,Peptides,path_sample)
+    idPeptides=peptide_identification(path_FASTA,Peptides,sample_saving_dir)
     mod_intervals=interval_maker_experimental(idPeptides,interval_length,modification_site)
     print('Intervals DB is ready!')
     return mod_intervals
 
-#второй датасет
-def mod_intervals_DB_experimental_2(path_FASTA,Peptides,interval_length,modification_site,path_sample):    
-    mod_intervals=interval_maker_experimental(Peptides,interval_length,modification_site)
-    print('Intervals DB is ready!')
-    return mod_intervals
+##второй датасет
+#def mod_intervals_DB_experimental_2(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir):    
+#    mod_intervals=interval_maker_experimental(Peptides,interval_length,modification_site)
+#    print('Intervals DB is ready!')
+#    return mod_intervals
 
 
 #набор функции для построения базы немодифицированных интервалов или backgroundов
@@ -178,7 +209,7 @@ def mod_intervals_DB_experimental_2(path_FASTA,Peptides,interval_length,modifica
 def FASTA_DB_creation(path_FASTA):
     background_DB=dict()
     #берем белок из белковой БД человека
-    for description, sequence in fasta.read(gzip.open(path_FASTA,'rt')):    
+    for description, sequence in fasta.read(open(path_FASTA)):    
         #ищем его номер
         i=description.find('|')
         k=description.rfind('|')
@@ -189,38 +220,38 @@ def FASTA_DB_creation(path_FASTA):
                 background_DB[s]=sequence           
     return  background_DB    
 
-#для рандома
-def FASTA_DB_creation_random(path_FASTA):
-    background_DB=dict()
-    #берем белок из белковой БД человека
-    for description, sequence in fasta.read(gzip.open(path_FASTA,'rt')):    
-        #ищем его номер
-        i=description.find('|')
-        k=description.rfind('|')
-        s=description[i+1:k]
-        #если белка нет в background БД записываем 
-        if s not in background_DB:
-            if sequence.count('X')==0:
-                str_var = list(sequence)
-                np.random.shuffle(str_var)
-                string=''.join(str_var)
-                background_DB[s]=string           
-    return  background_DB 
+##для рандома
+#def FASTA_DB_creation_random(path_FASTA):
+#    background_DB=dict()
+#    #берем белок из белковой БД человека
+#    for description, sequence in fasta.read(open(path_FASTA)):    
+#        #ищем его номер
+#        i=description.find('|')
+#        k=description.rfind('|')
+#        s=description[i+1:k]
+#        #если белка нет в background БД записываем 
+#        if s not in background_DB:
+#            if sequence.count('X')==0:
+#                str_var = list(sequence)
+#                np.random.shuffle(str_var)
+#                string=''.join(str_var)
+#                background_DB[s]=string           
+#    return  background_DB 
 
 
-#для HeLa
-def FASTA_DB_creation_HeLa(path_FASTA):
-    proteins=pd.read_csv('/home/vikalin/20151001_03_Qp1_HeLa_1ug.mzML.demix_proteins.csv',sep='\t')
-    hela_protein=proteins['dbname'].values
-    hela=dict()
-    for description, sequence in fasta.read(gzip.open(path_FASTA,'rt')):    
-        #ищем его номер
-        i=description.find('|')
-        k=description.rfind('|')
-        s=description[i+1:k]
-        if (s in hela_protein) and sequence.count('X')==0:
-            hela[s]=sequence
-    return  hela       
+##для HeLa
+#def FASTA_DB_creation_HeLa(path_FASTA):
+#    proteins=pd.read_csv('/home/vikalin/20151001_03_Qp1_HeLa_1ug.mzML.demix_proteins.csv',sep='\t')
+#    hela_protein=proteins['dbname'].values
+#    hela=dict()
+#    for description, sequence in fasta.read(gzip.open(path_FASTA,'rt')):    
+#        #ищем его номер
+#        i=description.find('|')
+#        k=description.rfind('|')
+#        s=description[i+1:k]
+#        if (s in hela_protein) and sequence.count('X')==0:
+#            hela[s]=sequence
+#    return  hela       
 
 
 #функция выделения интервалов для составления background
@@ -282,7 +313,7 @@ def background_maker(modification_site,interval_length,path_FASTA,modification):
 N_calculator= lambda intervals:len(intervals)
 
 
-def n_calculator(acids,intervals,interval_length,path_results):
+def n_calculator(acids,intervals,interval_length,results_saving_dir):
     #создаем матрицу для подсчета числа n и забиваем ее нулями
     n=[]
     for i in range(len(acids)):
@@ -300,7 +331,7 @@ def n_calculator(acids,intervals,interval_length,path_results):
                     n[i][k]+=1
                 else:
                     continue
-    path=path_results+'/'+'occurrences'+'.txt'
+    path=os.path.join(results_saving_dir,'occurrences.txt')
     saving=open(path,'w')
     for i in range(len(acids)):
         for k in range(interval_length*2+1):
@@ -310,9 +341,9 @@ def n_calculator(acids,intervals,interval_length,path_results):
     return n
 
 
-def background_n_matrix(acids,interval_length,background,path_results):
+def background_n_matrix(acids,interval_length,background,results_saving_dir):
     background_n=[]
-    path=path_results+'/'+'background'+'.txt'
+    path=os.path.join(results_saving_dir,'background.txt')
     saving=open(path,'w')
     #забиваем матрицу нулями
     for i in range(len(acids)):
@@ -377,7 +408,7 @@ def expected_destribution(background_n,occurrences,interval_length):
 
 
 # считаем p-value
-def chi2_result(occurrences_FASTA,expected_FASTA,all_exp,interval_length,path_results):
+def chi2_result(occurrences_FASTA,expected_FASTA,all_exp,interval_length,results_saving_dir):
     chi2_results=[]
     for i in range(0,21):
         a=[0]*(interval_length*2+1)
@@ -388,7 +419,7 @@ def chi2_result(occurrences_FASTA,expected_FASTA,all_exp,interval_length,path_re
                 chisq,p_value=chisquare([occurrences_FASTA[i][k],all_exp-occurrences_FASTA[i][k]],f_exp=[expected_FASTA[i][k],all_exp-expected_FASTA[i][k]])
                 chi2_results[i][k]=p_value
     #результат нужно сохранить
-    path=path_results+'/'+'p_value'+'.txt'
+    path=os.path.join(results_saving_dir,'p_value.txt')
     saving=open(path,'w')
     for i in range(0,21):
         for k in range(interval_length*2+1):
@@ -422,11 +453,11 @@ def p_value_selection(chi2_results,occurrences_FASTA,interval_length):
 # In[109]:
 
 
-def p_value(background_n,occurrences,interval_length,modification_site,acids,path_results):
+def p_value(background_n,occurrences,interval_length,modification_site,acids,results_saving_dir):
     expected_FASTA,all_exp=expected_destribution(background_n,occurrences,interval_length)
-    chi2_results=chi2_result(occurrences,expected_FASTA,all_exp,interval_length,path_results)
+    chi2_results=chi2_result(occurrences,expected_FASTA,all_exp,interval_length,results_saving_dir)
     chi2_selection=p_value_selection(chi2_results,occurrences,interval_length)
-    heatmap_visualization(chi2_selection,acids,interval_length,modification_site,'Отбор по p-value',path_results,name='p_value_selection')
+#    heatmap_visualization(chi2_selection,acids,interval_length,modification_site,'Отбор по p-value',results_saving_dir,name='p_value_selection')
     return expected_FASTA,chi2_results,chi2_selection
 
 
@@ -436,24 +467,24 @@ def p_value(background_n,occurrences,interval_length,modification_site,acids,pat
 
 
 
-def heatmap_visualization(matrix,acids,interval_length,modification_site,title,path_results,name=None):
-    x=[]
-    for i in range(-interval_length,interval_length+1):
-        if i==0:
-            x.append(modification_site)
-        else:    
-            x.append(i)
-    fig = plt.figure()
-    ax = sns.heatmap(matrix,xticklabels=x,yticklabels=acids,linewidths=.5,cmap="RdBu_r",center=1,square=True)
-    fig.set_figwidth(15)    #  ширина и
-    fig.set_figheight(15)#  высота "Figure"
-    ax.set_title(title)
-    
-    #сохранение рисунка
-    if name!=None:
-        path=path_results+'/'+name+'_'+modification_site+str(interval_length)+'.png'
-        plt.savefig(path)
-    plt.show()
+#def heatmap_visualization(matrix,acids,interval_length,modification_site,title,results_saving_dir,name=None):
+#    x=[]
+#    for i in range(-interval_length,interval_length+1):
+#        if i==0:
+#            x.append(modification_site)
+#        else:    
+#            x.append(i)
+#    fig = plt.figure()
+#    ax = sns.heatmap(matrix,xticklabels=x,yticklabels=acids,linewidths=.5,cmap="RdBu_r",center=1,square=True)
+#    fig.set_figwidth(15)    #  ширина и
+#    fig.set_figheight(15)#  высота "Figure"
+#    ax.set_title(title)
+#    
+#    #сохранение рисунка
+#    if name!=None:
+#        path=os.path.join(results_saving_dir,name+'_'+modification_site+str(interval_length)+'.png')
+#        plt.savefig(path)
+#    plt.show()
 
 
 #функция для подсчета комлексных мотивов
@@ -461,7 +492,7 @@ def heatmap_visualization(matrix,acids,interval_length,modification_site,title,p
 
 
 
-def primary_motifs(acids,interval_length,chi2_selection,path_results,modification_site):
+def primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modification_site):
     primary_motifs=[]
     primary_location=[]
     for i in range(0,21):
@@ -484,7 +515,7 @@ def primary_motifs(acids,interval_length,chi2_selection,path_results,modificatio
         motifs.append(word_motif)
         
     primary_motif['Motifs']=motifs
-    saving_table(path_results,primary_motif,interval_length,'primary')
+    saving_table(results_saving_dir,primary_motif,interval_length,'primary')
     print('Primary motifs are ready!')
     return primary_motif
 
@@ -492,7 +523,7 @@ def primary_motifs(acids,interval_length,chi2_selection,path_results,modificatio
 # In[114]:
 
 
-def double_motifs(primary_motif,acids,intervals,background,path_results,interval_length,modification_site):
+def double_motifs(primary_motif,acids,intervals,background,results_saving_dir,interval_length,modification_site):
     primary_motif_copy=primary_motif.copy()
     second_motifs_location=[]
     for i in range(len(primary_motif_copy)):
@@ -568,7 +599,7 @@ def double_motifs(primary_motif,acids,intervals,background,path_results,interval
     second_motifs_selection_p_copy=second_motifs_selection_p_copy.reset_index()    
     del second_motifs_selection_p_copy['index']
     
-    saving_table(path_results,second_motifs_selection_p_copy,interval_length,'double')
+    saving_table(results_saving_dir,second_motifs_selection_p_copy,interval_length,'double')
     print('Double motifs are ready!')
     
     return second_motifs_selection_p_copy
@@ -577,7 +608,7 @@ def double_motifs(primary_motif,acids,intervals,background,path_results,interval
 # In[115]:
 
 
-def triple_motifs(primary_motif,second_motifs,acids,intervals,background,path_results,modification_site):
+def triple_motifs(primary_motif,second_motifs,acids,intervals,background,results_saving_dir,modification_site):
     location=[]
     for i in range(len(second_motifs['Location'].values)):
         pair_1,pair_2=second_motifs['Location'].values[i]
@@ -686,7 +717,7 @@ def triple_motifs(primary_motif,second_motifs,acids,intervals,background,path_re
     del triple_motifs_selection_p_copy_copy['Counter']
     del triple_motifs_selection_p_copy_copy['index']
     
-    saving_table(path_results,triple_motifs_selection_p_copy_copy,interval_length,'triple')
+    saving_table(results_saving_dir,triple_motifs_selection_p_copy_copy,interval_length,'triple')
     print('Triple motifs are ready!')
     
     return triple_motifs_selection_p_copy_copy
@@ -694,7 +725,7 @@ def triple_motifs(primary_motif,second_motifs,acids,intervals,background,path_re
 
 
 #делаем прогу для 4хбуквенного мотива
-def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,path_results,modification_site):
+def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,results_saving_dir,modification_site):
     location=[]
     for i in range(len(triple_motifs['Location'].values)):
         pair_1,pair_2,pair_3=triple_motifs['Location'].values[i]
@@ -808,7 +839,7 @@ def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,path
     del quadro_motifs_selection_p_copy_copy['Counter']
     del quadro_motifs_selection_p_copy_copy['index']
     
-    saving_table(path_results,quadro_motifs_selection_p_copy_copy,interval_length,'quadruple')
+    saving_table(results_saving_dir,quadro_motifs_selection_p_copy_copy,interval_length,'quadruple')
     
     print('Quadro motifs are ready!')
     
@@ -819,13 +850,13 @@ def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,path
 
 
 #улучшенная версия 2
-def motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,path_results):
-    single=primary_motifs(acids,interval_length,chi2_selection,path_results,modification_site)
-    double=double_motifs(single,acids,intervals,background,path_results,interval_length,modification_site)
+def motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir):
+    single=primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modification_site)
+    double=double_motifs(single,acids,intervals,background,results_saving_dir,interval_length,modification_site)
     if double is not None:
-        triple=triple_motifs(single,double,acids,intervals,background,path_results,modification_site)
+        triple=triple_motifs(single,double,acids,intervals,background,results_saving_dir,modification_site)
         if triple is not None:
-            quadruple=quadruple_motifs(single,triple,acids,intervals,background,path_results,modification_site)
+            quadruple=quadruple_motifs(single,triple,acids,intervals,background,results_saving_dir,modification_site)
         else:
             quadruple=None
     else:
@@ -851,9 +882,9 @@ def p_value_bi(acids,modification_site,interval_length,background,background_n):
                 background_n_1[i][k]=(background_n[i][k])/len(background)
     return background_n_1
 
-def P_matrix_bi(acids,interval_length,n,N,background_n_1,path_results):
+def P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir):
     P=[]
-    path=path_results+'/'+'P'+'.txt'
+    path=os.path.join(results_saving_dir,'P.txt')
     saving=open(path,'w')
     for i in range(len(acids)):
         a=[0]*(interval_length*2+1)
@@ -873,21 +904,21 @@ def P_matrix_bi(acids,interval_length,n,N,background_n_1,path_results):
     saving.close()    
     return P
 
-def P_counter_bi(intervals,interval_length,modification_site,acids,background,path_results):
+def P_counter_bi(intervals,interval_length,modification_site,acids,background,results_saving_dir):
     print('Probability is being counted')
-    n=n_calculator(acids,intervals,interval_length,path_results)
+    n=n_calculator(acids,intervals,interval_length,results_saving_dir)
     N=N_calculator(intervals)
-    background_n=background_n_matrix(acids,interval_length,background,path_results)
+    background_n=background_n_matrix(acids,interval_length,background,results_saving_dir)
     background_n_1=p_value_bi(acids,modification_site,interval_length,background,background_n)
-    P=P_matrix_bi(acids,interval_length,n,N,background_n_1,path_results)
+    P=P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir)
     print('Probability is being counted')
     return P
 
 #рассчитаем occurrences
-def occurrences_counter_bi(intervals,interval_length,acids,modification_site,path_results):
-    n=n_calculator(acids,intervals,interval_length,path_results)
+def occurrences_counter_bi(intervals,interval_length,acids,modification_site,results_saving_dir):
+    n=n_calculator(acids,intervals,interval_length,results_saving_dir)
     N=N_calculator(intervals)
-    path=path_results+'/'+'occurrences'+'.txt'
+    path=os.path.join(results_saving_dir,'occurrences.txt')
     saving=open(path,'w')
     occurrences=[]
     for i in range(len(acids)):
@@ -973,7 +1004,7 @@ def single_motifs_creator_bi(acids,final_P,P,background,intervals,interval_lengt
     return single_motifs 
 
 
-def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,interval_length,modification_site,path_results):
+def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,interval_length,modification_site,results_saving_dir):
     #для каждого претендента нужно построить двойной комплексный мотив и оценить вероятность такого мотива
     indexes=[]
     location=[]
@@ -1100,7 +1131,7 @@ def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,
     
     return double_motifs_selection_copy
 
-def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,intervals,modification_site,interval_length,path_results):
+def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,intervals,modification_site,interval_length,results_saving_dir):
 
     indexes=[]
     location=[]
@@ -1213,7 +1244,7 @@ def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,interv
         
     return triple_motifs_selection_copy
 
-def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,intervals,modification_site,interval_length,path_results):
+def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,intervals,modification_site,interval_length,results_saving_dir):
 
     indexes=[]
     location=[]
@@ -1337,96 +1368,92 @@ def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,int
         
     return fourth_motifs_selection_copy
 
-def motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,path_results):
+def motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,results_saving_dir):
     #primary=primary_motifs_creator(acids,P_final,interval_length,modification_site)
     single=single_motifs_creator_bi(acids,P_final,P,background,intervals,interval_length,modification_site)
-    saving_table(path_results,single,interval_length,'single')
-    double=double_motifs_creator_bi(acids,single,background,intervals,P,interval_length,modification_site,path_results)
+    saving_table(results_saving_dir,single,interval_length,'single')
+    double=double_motifs_creator_bi(acids,single,background,intervals,P,interval_length,modification_site,results_saving_dir)
     if double is not None:
-        saving_table(path_results,double,interval_length,'double')
-        triple=triple_motifs_creator_bi(acids,double,single,background,intervals,modification_site,interval_length,path_results)
+        saving_table(results_saving_dir,double,interval_length,'double')
+        triple=triple_motifs_creator_bi(acids,double,single,background,intervals,modification_site,interval_length,results_saving_dir)
     if triple is not None:
-        saving_table(path_results,triple,interval_length,'triple')
-        quadruple=quadruple_motifs_creator_bi(acids,triple,single,background,intervals,modification_site,interval_length,path_results)
+        saving_table(results_saving_dir,triple,interval_length,'triple')
+        quadruple=quadruple_motifs_creator_bi(acids,triple,single,background,intervals,modification_site,interval_length,results_saving_dir)
     if quadruple is not None:
-        saving_table(path_results,quadruple,interval_length,'quadruple')
+        saving_table(results_saving_dir,quadruple,interval_length,'quadruple')
     return single,double,triple,quadruple
 
-def output_experimental_bi(name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
-    path_sample,path_modification,path_results=saving(name_sample,interval_length,modification,modification_site,'binom')
+def output_experimental_bi(working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
+    sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm)
     acids=['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
-    intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,path_modification)
+    intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir)
     print('Длина интервалов в exp',len(intervals))
     background=background_maker(modification_site,interval_length,path_FASTA,modification)
     print('Длина интервалов в back',len(background))
-    P=P_counter_bi(intervals,interval_length,modification_site,acids,background,path_results)
-    occurrences=occurrences_counter_bi(intervals,interval_length,acids,modification_site,path_results)
+    P=P_counter_bi(intervals,interval_length,modification_site,acids,background,results_saving_dir)
+    occurrences=occurrences_counter_bi(intervals,interval_length,acids,modification_site,results_saving_dir)
     P_final=final_validation_bi(acids,interval_length,occurrences,P)
-    single,double,triple,quadruple=motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,path_results)
+    single,double,triple,quadruple=motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,results_saving_dir)
     print(single,double,triple,quadruple)
     return P,occurrences,intervals,background
 ##
 
 
 #организация хранения результатов
-def saving(name_sample,interval_length,modification,modification_site,s): 
-    name_folder=modification_site+'_'+str(interval_length)+'_background:FASTA'+'_'+s  
-    path_sample='/home/vikalin/Article/'+name_sample
-    path_modification='/home/vikalin/Article/'+name_sample+'/'+modification
-    print(path_modification)
-    path_results=path_modification+'/'+name_folder
-    print(path_results)
-    if not (os.path.exists(path_modification)):
-        os.mkdir(path_modification)
-        if not (os.path.exists(path_results)):
-            os.mkdir(path_results)
-    else:
-        if not (os.path.exists(path_results)):
-            os.mkdir(path_results)
-    return  path_sample,path_modification,path_results       
-
-
+#def saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm): 
+#    sample_saving_dir = os.path.join(working_dir,name_sample)
+#    results_saving_dir = os.path.join(sample_saving_dir,modification+'_'+
+#    modification_site+str(interval_length)+'_'+algorithm)
+#    if not (os.path.exists(sample_saving_dir)):
+#        os.mkdir(sample_saving_dir)
+#        if not (os.path.exists(results_saving_dir)):
+#            os.mkdir(results_saving_dir)
+#    else:
+#        if not (os.path.exists(results_saving_dir)):
+#            os.mkdir(results_saving_dir)
+#    return  sample_saving_dir,results_saving_dir       
 # In[119]:
 
 
 #улучшение
 #хранение таблицы мотивов
-def saving_table(path_result,result,interval_length,name):
-    path=path_result+'/table'+str(interval_length)+'_'+name+'.csv'
+def saving_table(results_saving_dir,result,interval_length,name):
+    path=os.path.join(results_saving_dir,'table'+str(interval_length)+'_'+name+'.csv')
     result.to_csv(path)   
 
 
 # Для алгоритма chi2
 
 
-def output_experimental(name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
+def output_experimental(working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
     #path_FASTA='/home/vikalin/Article/HUMAN.fasta.gz'
     #path_identification='/home/vikalin/Article/identification.txt'
-    path_sample,path_modification,path_results=saving(name_sample,interval_length,modification,modification_site,'chi2')
+    sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,'chi2')
+#    path_sample,path_modification,path_results=saving(name_sample,interval_length,modification,modification_site,'chi2')
     acids=['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
-    intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,path_modification)
+    intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir)
     print('Длина интервалов в exp',len(intervals))
     background=background_maker(modification_site,interval_length,path_FASTA,modification)
     print('Длина интервалов в back',len(background))
-    occurrences=n_calculator(acids,intervals,interval_length,path_results)
-    background_n=background_n_matrix(acids,interval_length,background,path_results)
-    expected_FASTA,chi2_results,chi2_selection=p_value(background_n,occurrences,interval_length,modification_site,acids,path_results)
-    single,double,triple,quadruple=motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,path_results)
+    occurrences=n_calculator(acids,intervals,interval_length,results_saving_dir)
+    background_n=background_n_matrix(acids,interval_length,background,results_saving_dir)
+    expected_FASTA,chi2_results,chi2_selection=p_value(background_n,occurrences,interval_length,modification_site,acids,results_saving_dir)
+    single,double,triple,quadruple=motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
     print(single,double,triple,quadruple)
 
     
     return chi2_results,chi2_selection,intervals,background
 
-def output(a,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
-    if a=="binom":
+def output(algorithm,working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
+    if algorithm=="binom":
         print('I AM HERE')
-        a,b,c,d=output_experimental_bi(name_sample,Peptides,interval_length,
-                                                                              modification_site,modification,path_FASTA)
+        a,b,c,d=output_experimental_bi(working_dir,name_sample,Peptides,interval_length,
+                                       modification_site,modification,path_FASTA)
         #a,b,c,d=P,occurrences,intervals,background
     else:
-        a,b,c,d=output_experimental(name_sample,Peptides,interval_length,
-                                                                              modification_site,modification,path_FASTA)
+        a,b,c,d=output_experimental(working_dir,name_sample,Peptides,interval_length,
+                                    modification_site,modification,path_FASTA)
         #a,b,c,d=chi2_results,chi2_selection,intervals,background
     return  a,b,c,d  
 
-a,b,c,d=output(a,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA)
+a,b,c,d=output(algorithm,working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA)
