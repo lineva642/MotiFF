@@ -726,7 +726,7 @@ def triple_motifs(primary_motif,second_motifs,acids,intervals,background,interva
     
     motifs=[]
     for i in range(len(triple_motifs_selection_p_copy['Location'].values)):
-        print(i)
+#        print(i)
         motif=dict()
         pair_1,pair_2,pair_3=triple_motifs_selection_p_copy['Location'].values[i]
         pair_1_x,pair_1_y=pair_1
@@ -846,7 +846,7 @@ def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,inte
     
     motifs=[]
     for i in range(len(quadro_motifs_selection_p_copy['Location'].values)):
-        print(i)
+#        print(i)
         motif=dict()
         pair_1,pair_2,pair_3,pair_4=quadro_motifs_selection_p_copy['Location'].values[i]
         pair_1_x,pair_1_y=pair_1
@@ -936,7 +936,7 @@ def P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir):
         P.append(a)
     for i in range(len(acids)):
         for k in range(interval_length*2+1):
-            print(i,k)
+#            print(i,k)
             #формула-binom.pmf(k, n, p, loc=0)
             result=0
             c=n[i][k]
@@ -1170,7 +1170,7 @@ def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,
     del double_motifs_selection_copy['Count']
     
     
-    print('double_motifs',double_motifs_selection_copy)
+#    print('double_motifs',double_motifs_selection_copy)
     
     if probability==[]:
         double_motifs_selection_copy=None
@@ -1355,7 +1355,7 @@ def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,int
                     names=dict()
                     y=[triple_motif_1_y,triple_motif_2_y,triple_motif_3_y,triple_motif_4_y,fourth_y]
                     x=[triple_motif_1_x,triple_motif_2_x,triple_motif_3_x,triple_motif_4_x,fourth_x]
-                    print(len(y))
+#                    print(len(y))
                     for i in range(len(y)):
                         igrek=y[i]
                         ixes=x[i]
