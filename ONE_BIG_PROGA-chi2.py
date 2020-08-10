@@ -13,25 +13,40 @@ import random
 import profile
 from scipy.stats import chisquare
 
+import argparse
 
-
+parser = argparse.ArgumentParser(description='PTM identification in modified peptides')
+parser.add_argument('name_sample', type=str, help='Name of examined sample')
+parser.add_argument('interval_length',type=int,help='Number of amino acids before & after modified amino acid')
+parser.add_argument('modification',type=str,help='Type of modification(ex.PHOSPHORYLATION)')
+parser.add_argument('modification_site',type=str,help='Modified amino acid (ex.S,T)')
+parser.add_argument('working_dir',type=str,help='Working dir for program')
+parser.add_argument('algorithm',type=str,help='Enter algorithm name: binom or chi2')
+args = parser.parse_args()
+print(args.algorithm)
 #набор функции для построения базы модифицированных интервалов
 #для экспериментальных наборов данных
 #path_FASTA='/home/vikalin/Article/HUMAN.fasta.gz'
 #background_type='FASTA'
 # print('Название исследуемого набора данных:')
-name_sample='example'
+#name_sample='example'
 # print('Название организма:')
-organism='Human'
+#organism='Human'
 # print('Введите длину интервала:')
-interval_length=6
+#interval_length=6
 # print('Введите модификацию:')
-modification='PHOSPHORYLATION'
+#modification='PHOSPHORYLATION'
 # print('Введите сайт модификации:')
-modification_site='S'
+#modification_site='S'
 
-working_dir='C:/Users/Лиля/Documents'
-algorithm='binom'
+#name_sample='example'
+#interval_length=6
+#modification='PHOSPHORYLATION'
+#modification_site='S'
+#working_dir='C:/Users/Лиля/Documents'
+#algorithm='binom'
+
+import logging
 
 #создание папки для сохранения исходных данных
 def saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm): 
@@ -45,9 +60,14 @@ def saving(working_dir,name_sample,interval_length,modification,modification_sit
     else:
         if not (os.path.exists(results_saving_dir)):
             os.mkdir(results_saving_dir)
+#    logging.basicConfig(level = logging.DEBUG,filename=os.path.join(results_saving_dir,'mylog.log'))        
+#    logging.info(u'Directories for result saving are created')       
     return  sample_saving_dir,results_saving_dir
 
-sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm)    
+sample_saving_dir,results_saving_dir=saving(args.working_dir,args.name_sample,args.interval_length,args.modification,args.modification_site,args.algorithm)    
+#logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level = logging.DEBUG, filename=os.path.join(results_saving_dir,'mylog.log'))
+logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level = logging.DEBUG)
+logging.info(msg=u'Directories for result saving are created')
 
 #загрузка FASTA
 path_FASTA=os.path.join(sample_saving_dir,'HUMAN.fasta')
@@ -57,21 +77,27 @@ if not os.path.isfile(path_FASTA):
     urlretrieve(
         'https://www.uniprot.org/uniprot/?query=*&format=fasta&force=true&fil=organism:%22Homo%20sapiens%20(Human)%20[9606]%22%20AND%20reviewed:yes',
         path_FASTA)
-    print ('Done!')
+    logging.debug(msg=u'FASTA is loaded from Uniprot')    
+#    print ('Done!')
 else:
-    print('FASTA file for HUMAN already exists!')   
+    logging.debug(msg=u'FASTA file already exists')
+#    print('FASTA file for HUMAN already exists!')
+logging.info(msg=u'Protein database (FASTA) is loaded')    
 
 experimental_dir=os.path.join(sample_saving_dir,'dataset.xls')
 
 #загружаем таблицу модифицированных пептидов
 if not os.path.isfile(experimental_dir):
-    print ('Downloading the dataset')
+#    print ('Downloading the dataset')
     urlretrieve(
         'https://www.pnas.org/content/pnas/suppl/2004/08/06/0404720101.DC1/04720Table3.xls',
         experimental_dir)
-    print ('Done!')
+    logging.debug(msg=u'Modified peptides dataset is loaded')    
+#    print ('Done!')
 else:
-    print('XLS file for dataset already exists!')
+#    print('XLS file for dataset already exists!')
+    logging.debug(msg=u'XLS file for modified peptides dataset already exists')
+logging.info(msg=u'Modified peptides dataset is loaded')    
 
 
 
@@ -88,21 +114,22 @@ Peptides['Protein']=None
 ind=Peptides['Peptide'].values
 Peptides['index']=ind
 Peptides=Peptides.set_index('index')
-Peptides
-print('Peptides',Peptides)
+#Peptides
+#print('Peptides',Peptides)
+logging.debug(msg=u'Modified peptides dataframe is created')
 
 
 
 #поиск белков, соответствующих данным пептидам
 def peptide_identification(path_FASTA,Peptides,sample_saving_dir):
-    print ('Identification of peptides')
+#    print ('Identification of peptides')
     path_identificated_peptides=os.path.join(sample_saving_dir,'peptide_identification.csv')
     if not os.path.isfile(path_identificated_peptides):
         FASTA_dict=dict()
         for description, sequence in fasta.read(open(path_FASTA)):
             FASTA_dict[sequence]=description
         for elem in Peptides.index:
-            print(elem)
+#            print(elem)
             #выделили элемент, будем искать его в FASTA
             for protein in FASTA_dict:
                 if (protein.count(elem)!=0) and (Peptides['Protein'][elem] is not None):
@@ -115,7 +142,10 @@ def peptide_identification(path_FASTA,Peptides,sample_saving_dir):
     else:
         idPeptides=pd.read_csv(path_identificated_peptides, sep=',')
         
-    print ('Peptides are identificated')
+#    print ('Peptides are identificated')
+    logging.info(msg=str(len(idPeptides['Protein'].values))+' of '+str(len(Peptides['Protein'].values))
+    +' modified peptides are identificated')
+    logging.debug(msg=u'Peptides are identificated')                                
     return idPeptides
 
 #нарезка интервалов
@@ -189,10 +219,12 @@ def interval_maker_experimental(idPeptides,interval_length,modification_site):
 
 #формирование набора интервалов
 def mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir):
-    print('Making intervals DB')
+#    print('Making intervals DB')
     idPeptides=peptide_identification(path_FASTA,Peptides,sample_saving_dir)
     mod_intervals=interval_maker_experimental(idPeptides,interval_length,modification_site)
-    print('Intervals DB is ready!')
+#    print('Intervals DB is ready!')
+    logging.debug(u'Intervals DB is ready')
+    logging.info(u'Set of '+str(len(mod_intervals))+u' modified intervals s ready') 
     return mod_intervals
 
 ##второй датасет
@@ -287,7 +319,7 @@ def Background_creator(elem,i,interval_length):
 def background_array_FASTA(path_FASTA,modification_site,interval_length):
     #хотим сделать background из идентифицированных белков
     background_DB=FASTA_DB_creation(path_FASTA)
-    print('background_array_FASTA',len(background_DB))
+#    print('background_array_FASTA',len(background_DB))
     background=[]
 
     for elem in background_DB:
@@ -296,14 +328,16 @@ def background_array_FASTA(path_FASTA,modification_site,interval_length):
             #ищем совпадающие с сайтом модификации
             if s[i]==modification_site:
                 interval=Background_creator(s,i,interval_length)
-                background.append(interval)         
+                background.append(interval)               
     return background 
 
 
 def background_maker(modification_site,interval_length,path_FASTA,modification):
-    print('Making background DB')
+#    print('Making background DB')
     background=background_array_FASTA(path_FASTA,modification_site,interval_length)
-    print('Background DB is ready')    
+    logging.info(u'Set of ' + str(len(background))+ u' background intervals is created')
+    logging.debug(u'Background DB is ready')
+#    print('Background DB is ready')    
     return background   
 
 
@@ -337,7 +371,8 @@ def n_calculator(acids,intervals,interval_length,results_saving_dir):
         for k in range(interval_length*2+1):
             saving.write(str(n[i][k])+' ')
         saving.write('\n')
-    saving.close()                    
+    saving.close()
+    logging.debug(msg=u'Occurrence matrix was created')                    
     return n
 
 
@@ -370,7 +405,8 @@ def background_n_matrix(acids,interval_length,background,results_saving_dir):
             else:
                 saving.write(str(0)+' ')
         saving.write('\n')
-    saving.close()                     
+    saving.close()
+    logging.debug(msg=u'Background occurrence matrix was created')                     
     return background_n
 
 ##АЛГОРИТМ_chi2
@@ -400,6 +436,7 @@ def expected_destribution(background_n,occurrences,interval_length):
     for i in range(0,21):
         for k in range(0,interval_length*2+1):
             expected_FASTA[i][k]=(norm_FASTA[i][k])*all_exp
+    logging.debug(u'Expected destrbution was counted')        
     return expected_FASTA,all_exp
 #    return background_n,all_exp
 
@@ -426,6 +463,7 @@ def chi2_result(occurrences_FASTA,expected_FASTA,all_exp,interval_length,results
             saving.write(str(chi2_results[i][k])+' ')
         saving.write('\n')
     saving.close()
+    logging.debug(msg=u'Chi2 values matrix was created')
     return chi2_results            
 
 
@@ -441,6 +479,7 @@ def p_value_selection(chi2_results,occurrences_FASTA,interval_length):
         for k in range(0,2*interval_length+1):
             if (chi2_results[i][k]<0.05/(21*(2*interval_length+1))) and (k!=interval_length) and (occurrences_FASTA[i][k]>10):
                 chi2_selection[i][k]=1
+    logging.debug(u'Selection of matrix elements was successful')            
     return chi2_selection            
 
 
@@ -458,6 +497,7 @@ def p_value(background_n,occurrences,interval_length,modification_site,acids,res
     chi2_results=chi2_result(occurrences,expected_FASTA,all_exp,interval_length,results_saving_dir)
     chi2_selection=p_value_selection(chi2_results,occurrences,interval_length)
 #    heatmap_visualization(chi2_selection,acids,interval_length,modification_site,'Отбор по p-value',results_saving_dir,name='p_value_selection')
+    logging.info(u'Chi2 values were counted and selection with p=0.05/Bonferroni and occurrences>10 correction was performed')
     return expected_FASTA,chi2_results,chi2_selection
 
 
@@ -516,7 +556,8 @@ def primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modif
         
     primary_motif['Motifs']=motifs
     saving_table(results_saving_dir,primary_motif,interval_length,'primary')
-    print('Primary motifs are ready!')
+#    print('Primary motifs are ready!')
+    logging.info(str(len(primary_motif['Motifs'].values))+u' primary (one acid length) motifs were identificated')
     return primary_motif
 
 
@@ -600,7 +641,8 @@ def double_motifs(primary_motif,acids,intervals,background,results_saving_dir,in
     del second_motifs_selection_p_copy['index']
     
     saving_table(results_saving_dir,second_motifs_selection_p_copy,interval_length,'double')
-    print('Double motifs are ready!')
+#    print('Double motifs are ready!')
+    logging.info(str(len(second_motifs_selection_p_copy['Motifs'].values))+u' double (two acid length) motifs were identificated')
     
     return second_motifs_selection_p_copy
 
@@ -608,7 +650,7 @@ def double_motifs(primary_motif,acids,intervals,background,results_saving_dir,in
 # In[115]:
 
 
-def triple_motifs(primary_motif,second_motifs,acids,intervals,background,results_saving_dir,modification_site):
+def triple_motifs(primary_motif,second_motifs,acids,intervals,background,interval_length,results_saving_dir,modification_site):
     location=[]
     for i in range(len(second_motifs['Location'].values)):
         pair_1,pair_2=second_motifs['Location'].values[i]
@@ -718,14 +760,15 @@ def triple_motifs(primary_motif,second_motifs,acids,intervals,background,results
     del triple_motifs_selection_p_copy_copy['index']
     
     saving_table(results_saving_dir,triple_motifs_selection_p_copy_copy,interval_length,'triple')
-    print('Triple motifs are ready!')
+#    print('Triple motifs are ready!')
+    logging.info(str(len(triple_motifs_selection_p_copy_copy['Motifs'].values))+u' triple (three acid length) motifs were identificated')
     
     return triple_motifs_selection_p_copy_copy
 
 
 
 #делаем прогу для 4хбуквенного мотива
-def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,results_saving_dir,modification_site):
+def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,interval_length,results_saving_dir,modification_site):
     location=[]
     for i in range(len(triple_motifs['Location'].values)):
         pair_1,pair_2,pair_3=triple_motifs['Location'].values[i]
@@ -841,7 +884,8 @@ def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,resu
     
     saving_table(results_saving_dir,quadro_motifs_selection_p_copy_copy,interval_length,'quadruple')
     
-    print('Quadro motifs are ready!')
+    logging.info(str(len(quadro_motifs_selection_p_copy_copy['Motifs'].values))+u' quadruple (four acid length) motifs were identificated')
+#    print('Quadro motifs are ready!')
     
     return quadro_motifs_selection_p_copy_copy
 
@@ -854,9 +898,9 @@ def motifs(acids,chi2_selection,interval_length,modification_site,background,int
     single=primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modification_site)
     double=double_motifs(single,acids,intervals,background,results_saving_dir,interval_length,modification_site)
     if double is not None:
-        triple=triple_motifs(single,double,acids,intervals,background,results_saving_dir,modification_site)
+        triple=triple_motifs(single,double,acids,intervals,background,interval_length,results_saving_dir,modification_site)
         if triple is not None:
-            quadruple=quadruple_motifs(single,triple,acids,intervals,background,results_saving_dir,modification_site)
+            quadruple=quadruple_motifs(single,triple,acids,intervals,background,interval_length,results_saving_dir,modification_site)
         else:
             quadruple=None
     else:
@@ -880,6 +924,7 @@ def p_value_bi(acids,modification_site,interval_length,background,background_n):
                 background_n_1[i][k]=1
             else:    
                 background_n_1[i][k]=(background_n[i][k])/len(background)
+    logging.debug(msg=u'p for each background occurrence matrix element was counted')            
     return background_n_1
 
 def P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir):
@@ -901,23 +946,25 @@ def P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir):
             P[i][k]=result
             saving.write(str(result)+' ')
         saving.write('\n')
-    saving.close()    
+    saving.close()
+    logging.debug(msg=u'Binomal probability for each occurrence matrix element was counted')    
     return P
 
 def P_counter_bi(intervals,interval_length,modification_site,acids,background,results_saving_dir):
-    print('Probability is being counted')
+#    print('Probability is being counted')
     n=n_calculator(acids,intervals,interval_length,results_saving_dir)
     N=N_calculator(intervals)
     background_n=background_n_matrix(acids,interval_length,background,results_saving_dir)
     background_n_1=p_value_bi(acids,modification_site,interval_length,background,background_n)
     P=P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir)
-    print('Probability is being counted')
+#    print('Probability is being counted')
+    logging.info(u'Binomial probability for each amino acid in matrix was counted')
     return P
 
 #рассчитаем occurrences
 def occurrences_counter_bi(intervals,interval_length,acids,modification_site,results_saving_dir):
     n=n_calculator(acids,intervals,interval_length,results_saving_dir)
-    N=N_calculator(intervals)
+#    N=N_calculator(intervals)
     path=os.path.join(results_saving_dir,'occurrences.txt')
     saving=open(path,'w')
     occurrences=[]
@@ -931,7 +978,7 @@ def occurrences_counter_bi(intervals,interval_length,acids,modification_site,res
             saving.write(str(occurrences[i][k])+' ')
         saving.write('\n')
     saving.close()             
-    print('Occurrences is being counted')            
+    logging.debug(u'Occurrences for each amino acid in matrix was counted')            
     return occurrences 
 
 #отбор по вероятности
@@ -946,6 +993,7 @@ def P_validation_bi(acids,interval_length,P):
                 continue
             else:
                 P1[i][k]+=1
+    logging.debug(u'Occurrences for each amino acid in matrix was counted')            
     return P1
 
 #отбор по встречаемости более 10
@@ -971,6 +1019,7 @@ def final_validation_bi(acids,interval_length,occurrences,P):
                 continue
             else:
                 P1[i][k]=1
+    (u'Binomial probabilities were counted and selection with p=0.05/Bonferroni correction and occurrences>10 was performed')            
     return P1 
 
 
@@ -1001,6 +1050,7 @@ def single_motifs_creator_bi(acids,final_P,P,background,intervals,interval_lengt
                 backgrounds.append(x)
     #создадим Series
     single_motifs=pd.DataFrame({'Location': location, 'Probability': probability , 'Occurrences' : occurrences, 'Backgrounds': backgrounds}, index=indexes)
+    logging.info(str(len(single_motifs['Occurrences'].values))+u' primary (one acid length) motifs were identificated')    
     return single_motifs 
 
 
@@ -1128,7 +1178,7 @@ def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,
 #     if double_motifs_selection_copy is not None:
 #         volcano_plot_for_motifs(double_motifs_selection_copy,path_results,name='double_motifs')    
         
-    
+    logging.info(str(len(double_motifs_selection_copy['Occurrences'].values))+u' double (two acid length) motifs were identificated')
     return double_motifs_selection_copy
 
 def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,intervals,modification_site,interval_length,results_saving_dir):
@@ -1185,16 +1235,16 @@ def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,interv
                     #теперь разбираемся с названием мотива
                     names=dict()
                     names[double_motif_1_y]=acids[double_motif_1_x]
-                    print('names dict',double_motif_1_y,acids[double_motif_1_x])
+#                    print('names dict',double_motif_1_y,acids[double_motif_1_x])
                     names[double_motif_2_y]=acids[double_motif_2_x]
-                    print('names dict',double_motif_2_y,acids[double_motif_2_x])
+#                    print('names dict',double_motif_2_y,acids[double_motif_2_x])
                     names[third_y]=acids[third_x]
-                    print('names',third_y,acids[third_x])
+#                    print('names',third_y,acids[third_x])
                     names[interval_length]=modification_site.lower()
                     list_names=list(names.keys())
-                    print('list names 0',list_names)
+#                    print('list names 0',list_names)
                     list_names.sort()
-                    print('list names',list_names)
+#                    print('list names',list_names)
                     
                     name=[names[list_names[0]],'.'*(list_names[1]-list_names[0]-1),names[list_names[1]],
                           '.'*(list_names[2]-list_names[1]-1),names[list_names[2]],'.'*(list_names[3]-list_names[2]-1),
@@ -1241,7 +1291,7 @@ def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,interv
     
 #     if triple_motifs_selection_copy is not None:
 # #         volcano_plot_for_motifs(triple_motifs_selection_copy,path_results,name='triple_motifs')    
-        
+    logging.info(str(len(triple_motifs_selection_copy['Occurrences'].values))+u' triple (three acid length) motifs were identificated')    
     return triple_motifs_selection_copy
 
 def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,intervals,modification_site,interval_length,results_saving_dir):
@@ -1315,9 +1365,9 @@ def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,int
                             names[igrek]=modification_site.lower()
                     
                     list_names=list(names.keys())
-                    print('list names 0',list_names)
+#                    print('list names 0',list_names)
                     list_names.sort()
-                    print('list names',list_names)
+#                    print('list names',list_names)
                     
                     name=[names[list_names[0]],'.'*(list_names[1]-list_names[0]-1),names[list_names[1]],
                           '.'*(list_names[2]-list_names[1]-1),names[list_names[2]],'.'*(list_names[3]-list_names[2]-1),
@@ -1365,7 +1415,7 @@ def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,int
     
 #     if fourth_motifs_selection_copy is not None:
 #         volcano_plot_for_motifs(fourth_motifs,path_results,name='triple_motifs')    
-        
+    logging.info(str(len(fourth_motifs_selection_copy['Occurrences'].values))+u' quadruple (four acid length) motifs were identificated')    
     return fourth_motifs_selection_copy
 
 def motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,results_saving_dir):
@@ -1383,18 +1433,19 @@ def motifs_bi(acids,P_final,interval_length,modification_site,background,interva
         saving_table(results_saving_dir,quadruple,interval_length,'quadruple')
     return single,double,triple,quadruple
 
-def output_experimental_bi(working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
+def output_experimental_bi(working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA,algorithm):
     sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm)
     acids=['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
     intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir)
-    print('Длина интервалов в exp',len(intervals))
+#    print('Длина интервалов в exp',len(intervals))
     background=background_maker(modification_site,interval_length,path_FASTA,modification)
-    print('Длина интервалов в back',len(background))
+#    print('Длина интервалов в back',len(background))
     P=P_counter_bi(intervals,interval_length,modification_site,acids,background,results_saving_dir)
     occurrences=occurrences_counter_bi(intervals,interval_length,acids,modification_site,results_saving_dir)
     P_final=final_validation_bi(acids,interval_length,occurrences,P)
     single,double,triple,quadruple=motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,results_saving_dir)
-    print(single,double,triple,quadruple)
+#    print(single,double,triple,quadruple)
+#    logging.info(msg='Program was finished successfully')
     return P,occurrences,intervals,background
 ##
 
@@ -1432,28 +1483,30 @@ def output_experimental(working_dir,name_sample,Peptides,interval_length,modific
 #    path_sample,path_modification,path_results=saving(name_sample,interval_length,modification,modification_site,'chi2')
     acids=['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
     intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir)
-    print('Длина интервалов в exp',len(intervals))
+#    print('Длина интервалов в exp',len(intervals))
     background=background_maker(modification_site,interval_length,path_FASTA,modification)
-    print('Длина интервалов в back',len(background))
+#    print('Длина интервалов в back',len(background))
     occurrences=n_calculator(acids,intervals,interval_length,results_saving_dir)
     background_n=background_n_matrix(acids,interval_length,background,results_saving_dir)
     expected_FASTA,chi2_results,chi2_selection=p_value(background_n,occurrences,interval_length,modification_site,acids,results_saving_dir)
     single,double,triple,quadruple=motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
-    print(single,double,triple,quadruple)
+#    print(single,double,triple,quadruple)
+#    logging.info(msg='Program was finished successfully')
 
     
     return chi2_results,chi2_selection,intervals,background
 
 def output(algorithm,working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
     if algorithm=="binom":
-        print('I AM HERE')
+#        print('I AM HERE')
         a,b,c,d=output_experimental_bi(working_dir,name_sample,Peptides,interval_length,
-                                       modification_site,modification,path_FASTA)
+                                       modification_site,modification,path_FASTA,algorithm)
         #a,b,c,d=P,occurrences,intervals,background
     else:
         a,b,c,d=output_experimental(working_dir,name_sample,Peptides,interval_length,
                                     modification_site,modification,path_FASTA)
         #a,b,c,d=chi2_results,chi2_selection,intervals,background
+    logging.info(msg='Program was finished successfully')                                
     return  a,b,c,d  
 
-a,b,c,d=output(algorithm,working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA)
+a,b,c,d=output(args.algorithm,args.working_dir,args.name_sample,Peptides,args.interval_length,args.modification_site,args.modification,path_FASTA)
