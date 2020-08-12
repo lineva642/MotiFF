@@ -16,12 +16,15 @@ from scipy.stats import chisquare
 import argparse
 
 parser = argparse.ArgumentParser(description='PTM identification in modified peptides')
-parser.add_argument('name_sample', type=str, help='Name of examined sample')
-parser.add_argument('interval_length',type=int,help='Number of amino acids before & after modified amino acid')
-parser.add_argument('modification',type=str,help='Type of modification(ex.PHOSPHORYLATION)')
-parser.add_argument('modification_site',type=str,help='Modified amino acid (ex.S,T)')
-parser.add_argument('working_dir',type=str,help='Working dir for program')
-parser.add_argument('algorithm',type=str,help='Enter algorithm name: binom or chi2')
+parser.add_argument('dataset', type=str, help ='Path to experimental dataset')
+parser.add_argument('fasta',type=str, help='Path to FASTA')
+parser.add_argument('--name_sample', type=str,default='sample_1', help='Name of examined sample',required=False)
+parser.add_argument('--interval_length',type=int,default=6,help='Number of amino acids before & after modified amino acid (default=6)',required=False)
+parser.add_argument('--modification',type=str,default='modification_1',help='Name of modification(ex.PHOSPHORYLATION)',required=False)
+parser.add_argument('--modification_site',type=str,help='Modified amino acid (ex.S,T)')
+parser.add_argument('--working_dir',type=str,default='.',help='Working dir for program (default=".")',required=False)
+parser.add_argument('--algorithm',type=str,default='binom',help='Enter algorithm name: binom or chi2(default="binom")',required=False)
+parser.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity',required=False)
 args = parser.parse_args()
 print(args.algorithm)
 #набор функции для построения базы модифицированных интервалов
@@ -66,38 +69,41 @@ def saving(working_dir,name_sample,interval_length,modification,modification_sit
 
 sample_saving_dir,results_saving_dir=saving(args.working_dir,args.name_sample,args.interval_length,args.modification,args.modification_site,args.algorithm)    
 #logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level = logging.DEBUG, filename=os.path.join(results_saving_dir,'mylog.log'))
-logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level = logging.DEBUG)
+levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level=levels[args.verbosity])
 logging.info(msg=u'Directories for result saving are created')
 
 #загрузка FASTA
-path_FASTA=os.path.join(sample_saving_dir,'HUMAN.fasta')
+#path_FASTA=os.path.join(sample_saving_dir,'HUMAN.fasta')
+path_FASTA=args.fasta
 
-if not os.path.isfile(path_FASTA):
-    print ('Downloading the FASTA file for HUMAN')
-    urlretrieve(
-        'https://www.uniprot.org/uniprot/?query=*&format=fasta&force=true&fil=organism:%22Homo%20sapiens%20(Human)%20[9606]%22%20AND%20reviewed:yes',
-        path_FASTA)
-    logging.debug(msg=u'FASTA is loaded from Uniprot')    
-#    print ('Done!')
-else:
-    logging.debug(msg=u'FASTA file already exists')
+#if not os.path.isfile(path_FASTA):
+#    print ('Downloading the FASTA file for HUMAN')
+#    urlretrieve(
+#        'https://www.uniprot.org/uniprot/?query=*&format=fasta&force=true&fil=organism:%22Homo%20sapiens%20(Human)%20[9606]%22%20AND%20reviewed:yes',
+#        path_FASTA)
+#    logging.debug(msg=u'FASTA is loaded from Uniprot')    
+##    print ('Done!')
+#else:
+#    logging.debug(msg=u'FASTA file already exists')
 #    print('FASTA file for HUMAN already exists!')
 logging.info(msg=u'Protein database (FASTA) is loaded')    
 
-experimental_dir=os.path.join(sample_saving_dir,'dataset.xls')
+#experimental_dir=os.path.join(sample_saving_dir,'dataset.xls')
+experimental_dir=args.dataset
 
 #загружаем таблицу модифицированных пептидов
-if not os.path.isfile(experimental_dir):
-#    print ('Downloading the dataset')
-    urlretrieve(
-        'https://www.pnas.org/content/pnas/suppl/2004/08/06/0404720101.DC1/04720Table3.xls',
-        experimental_dir)
-    logging.debug(msg=u'Modified peptides dataset is loaded')    
-#    print ('Done!')
-else:
-#    print('XLS file for dataset already exists!')
-    logging.debug(msg=u'XLS file for modified peptides dataset already exists')
-logging.info(msg=u'Modified peptides dataset is loaded')    
+#if not os.path.isfile(experimental_dir):
+##    print ('Downloading the dataset')
+#    urlretrieve(
+#        'https://www.pnas.org/content/pnas/suppl/2004/08/06/0404720101.DC1/04720Table3.xls',
+#        experimental_dir)
+#    logging.debug(msg=u'Modified peptides dataset is loaded')    
+##    print ('Done!')
+#else:
+##    print('XLS file for dataset already exists!')
+#    logging.debug(msg=u'XLS file for modified peptides dataset already exists')
+#logging.info(msg=u'Modified peptides dataset is loaded')    
 
 
 
