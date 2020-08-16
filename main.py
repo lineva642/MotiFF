@@ -31,12 +31,11 @@ parser.add_argument('fasta',type=str, help='Path to FASTA')
 parser.add_argument('--name_sample', type=str,default='sample_1', help='Name of examined sample',required=False)
 parser.add_argument('--interval_length',type=int,default=6,help='Number of amino acids before & after modified amino acid (default=6)',required=False)
 parser.add_argument('--modification',type=str,default='modification_1',help='Name of modification(ex.PHOSPHORYLATION)',required=False)
-parser.add_argument('--modification_site',type=str,help='Modified amino acid (ex.S,T)')
+parser.add_argument('--modification_site',type=str,default='S',help='Modified amino acid (ex.S,T)')
 parser.add_argument('--working_dir',type=str,default='.',help='Working dir for program (default=".")',required=False)
 parser.add_argument('--algorithm',type=str,default='binom',help='Enter algorithm name: binom or chi2(default="binom")',required=False)
 parser.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity',required=False)
 args = parser.parse_args()
-print(args.algorithm)
 
 
 sample_saving_dir,results_saving_dir=utils.saving(args.working_dir,args.name_sample,args.interval_length,args.modification,args.modification_site,args.algorithm)    
@@ -46,10 +45,7 @@ logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level
 logging.info(msg=u'Directories for result saving are created')
 
 
-path_FASTA=args.fasta
-
-
-logging.info(msg=u'Protein database (FASTA) is loaded')    
+path_FASTA=args.fasta    
 
 
 experimental_dir=args.dataset
