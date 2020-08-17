@@ -22,7 +22,7 @@ from scipy.stats import chisquare
 import argparse
 import logging
 import chi2
-import binom
+import binomial
 
 def saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm):
 
