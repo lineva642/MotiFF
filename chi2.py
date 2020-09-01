@@ -109,11 +109,6 @@ def p_value_selection(chi2_results,occurrences_FASTA,interval_length):
 
 
 #напишем одну функцию для подсчета p-value
-
-
-# In[109]:
-
-
 def p_value(background_n,occurrences,interval_length,modification_site,acids,results_saving_dir):
     expected_FASTA,all_exp=expected_destribution(background_n,occurrences,interval_length)
     chi2_results=chi2_result(occurrences,expected_FASTA,all_exp,interval_length,results_saving_dir)
@@ -123,12 +118,7 @@ def p_value(background_n,occurrences,interval_length,modification_site,acids,res
     return expected_FASTA,chi2_results,chi2_selection
 
 #функция для подсчета комлексных мотивов
-
-
-
-
-def primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modification_site):
-    
+def primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modification_site):    
     primary_motifs_number=[]
     primary_motifs_letter=[]
     for elem in chi2_selection:
@@ -142,8 +132,7 @@ def primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modif
             motif=modification_site.lower()+'.'*(k-interval_length-1)+acids[i]
         primary_motifs_letter.append(motif)
     vector=np.array(primary_motifs_number)    
-    table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter})    
-    print(table)    
+    table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter})      
     utils.saving_table(results_saving_dir,table,interval_length,'primary')
     logging.info(str(len(table['Number motif'].values))+u' primary (one acid length) motifs were identificated')
     return vector,table
@@ -158,23 +147,7 @@ def counter_doubles(dataset,i_1,i_2,k_1,k_2,acids):
             count+=1
     return count
 
-def double_motifs(vector,table,acids,intervals,background,results_saving_dir,interval_length,modification_site):
-    #составляем список возможных кандидатов
-#    double_number_motifs=[]
-#    vector=np.array(table['Number motif'].values)
-#    a=len(table['Number motif'].values)
-#    matrix=np.empty((a,a),dtype=object)
-#    for i in range(a):
-#        for k in range(a):
-#            matrix[i][k]=(vector[i])*(vector[k])
-#    def matrix_multiply(vector):
-#       matrix_1=[]
-#       matrix_2=[]
-#       for elem in vector:
-#           print('!',elem.shape,vector.shape)
-#           matrix_1.append(elem*vector)
-#           matrix_2.append(elem+vector)
-#       return matrix_1,matrix_2
+def double_motifs(vector,acids,intervals,background,results_saving_dir,interval_length,modification_site):
     #выполняем тензорное умножение
     b = np.tensordot(vector, vector.T, axes=0)
     l=len(vector)    
@@ -187,9 +160,8 @@ def double_motifs(vector,table,acids,intervals,background,results_saving_dir,int
     
     #создаем пустую табличку, в которую будем записывать результаты
     result=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),
-                                                'Observed':np.array([]),'Fasta':np.array([]),
-                                                                    'p-value':np.array([])})    
-    
+                                                'Observed':np.array([]),'Expected':np.array([]),
+                                                                    'p-value':np.array([])})     
     back_len=len(background)
     int_len=len(intervals)
     for i in range(l):
@@ -198,12 +170,10 @@ def double_motifs(vector,table,acids,intervals,background,results_saving_dir,int
             elem=matrix[i,j]
             if (elem.any())==False:
                 motif=vector[i]+vector[j]
-                print(np.nonzero(motif))
                 #положение аминокислот в интервале
                 k_1,k_2=np.nonzero(motif)[0][0],np.nonzero(motif)[0][1]
                 #номера аминокислот
                 i_1,i_2=int(motif[k_1]),int(motif[k_2])
-                print('!',k_1,k_2,i_1,i_2)
                 observed=counter_doubles(intervals,i_1,i_2,k_1,k_2,acids)
                 fasta=counter_doubles(background,i_1,i_2,k_1,k_2,acids)
                 expected=(fasta/back_len)*int_len
@@ -212,210 +182,81 @@ def double_motifs(vector,table,acids,intervals,background,results_saving_dir,int
                 keys=list(position.keys())
                 keys.sort()
                 motif_l=''.join([position[keys[0]],'.'*(keys[1]-keys[0]-1),position[keys[1]],'.'*(keys[2]-keys[1]-1),position[keys[2]]])
-                print(motif_l)
                 result=result.append({'Letter motif':motif_l,'Number motif':motif,
-                                'Observed':observed,'Fasta':fasta,
+                                'Observed':observed,'Expected':expected,
                                                     'p-value':p_value},
                                                     ignore_index=True) 
-            j+=1
-            
-#    print(vector_1)
-#    vector_2=vector_1.reshape(len(vector_1),1)
-#    print(vector_2)
-    
-#    #создаем пустую табличку, в которую будем записывать результаты
-#    result=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),
-#                                                'Observed':np.array([]),'Fasta':np.array([]),
-#                                                                    'p-value':np.array([])})
-#    matrix_1,matrix_2=matrix_multiply(vector)
-#    for i in table['Number motif'].index:
-#        for k in table['Number motif'].index:
-#            if (k>=i) and (not matrix_1[i][k].any())==True:
-#                motif=np.array(matrix_2[i][k],dtype=int)
-#                k_1,k_2=np.nonzero(motif)[0][0],np.nonzero(motif)[0][1]
-#                i_1,i_2=motif[k_1],motif[k_2]
-#                
-#                observed=counter_doubles(intervals,i_1,i_2,k_1,k_2,acids)
-#                fasta=counter_doubles(background,i_1,i_2,k_1,k_2,acids)
-#                expected=(fasta/len(background))*len(intervals)
-#                chisq,p_value=chisquare([observed,len(intervals)-observed],f_exp=[expected,len(intervals)-expected])
-#                position={k_1:acids[i_1],k_2:acids[i_2],interval_length:modification_site.lower()}
-#                keys=list(position.keys())
-#                keys.sort()
-#                motif_l=position[keys[0]]+'.'*(keys[1]-keys[0]-1)+position[keys[1]]+'.'*(keys[2]-keys[1]-1)+position[keys[2]]        
-#        #добавляем расчитанное значение в готовую табличку
-#                result=result.append({'Letter motif':motif_l,'Number motif':motif,
-#                                                'Observed':observed,'Fasta':fasta,
-#                                                                    'p-value':p_value},
-#                                                                    ignore_index=True)                                                                    
-#    for i in table['Number motif'].index:
-#        for k in table['Number motif'].index:
-#            if (k>=i) and (not matrix[i][k].any())==True:
-#                motif=np.array((vector[k]+vector[i]),dtype=int)
-##                double_number_motifs.append(motif)
-#                
-#    #считаем значение хи квадрат для конкретного мотива
-#                print(motif)
-#                k_1,k_2=np.nonzero(motif)[0][0],np.nonzero(motif)[0][1]
-#                i_1,i_2=motif[k_1],motif[k_2]
-#                
-#                observed=counter_doubles(intervals,i_1,i_2,k_1,k_2,acids)
-#                fasta=counter_doubles(background,i_1,i_2,k_1,k_2,acids)
-#                expected=(fasta/len(background))*len(intervals)
-#                chisq,p_value=chisquare([observed,len(intervals)-observed],f_exp=[expected,len(intervals)-expected])
-#                position={k_1:acids[i_1],k_2:acids[i_2],interval_length:modification_site.lower()}
-#                keys=list(position.keys())
-#                keys.sort()
-#                motif_l=position[keys[0]]+'.'*(keys[1]-keys[0]-1)+position[keys[1]]+'.'*(keys[2]-keys[1]-1)+position[keys[2]]        
-#        #добавляем расчитанное значение в готовую табличку
-#                result=result.append({'Letter motif':motif_l,'Number motif':motif,
-#                                                'Observed':observed,'Fasta':fasta,
-#                                                                    'p-value':p_value},
-#                                                                    ignore_index=True)
-    logging.info(str(len(table['Letter motif'].values))+u' double (two acid length) motifs were identificated')
-                                                                
-    print(result)        
+            j+=1           
+    logging.info(str(len(result['Letter motif'].values))+u' double (two acid length) motifs were identificated')                                                                       
     return result
-#    double_motifs=[]
-#    k=1
-#    for i in range(len(chi2_selection)-1):
-#        for l in range(k,len(chi2_selection)):
-#            double_motifs.append((chi2_selection[i],chi2_selection[l]))
-#        k+=1
-#    
-#    #unpacking
-#    double_motifs_selected=[]
-#    occurrences=[]
-#    expactations=[]
-#    p_values=[]
-#    for elem in double_motifs:
-#        acid_1,acid_2=elem
-#        i_1,k_1=acid_1
-#        i_2,k_2=acid_2
-#        observed=0
-#        fasta=0
-#        if k_1!=k_2:
-#            for elem in intervals:
-#                if (elem[k_1]==acids[i_1]) and (elem[k_2]==acids[i_2]):
-#                    observed+=1
-#            for elem in background:
-#                if (elem[k_1]==acids[i_1]) and (elem[k_2]==acids[i_2]):
-#                    fasta+=1
-#            occurrences.append(observed)
-#            expected=(fasta/len(background))*len(intervals)
-#            expactations.append(expected)
-#        
-#    #отбор по встречаемости
-#            if observed>10:
-#                chisq,p_value=chisquare([observed,len(intervals)-observed],f_exp=[expected,len(intervals)-expected])
-#                double_motifs_selected.append(((i_1,k_1),(i_2,k_2)))
-#                p_values.append(p_value)
-#
-#    
-#    #отбор по вероятности
-#    double={}
-#    for i in range(len(p_values)):
-#        if p_values[i]<0.05/len(p_values):
-#            key=double_motifs_selected[i]
-#            double[key]=p_values[i]
-#    
-#    #написание мотива
-#    motifs=[]
-#    for elem in list(double.keys()):
-#        acid_1,acid_2=elem
-#        i_1,k_1=acid_1
-#        i_2,k_2=acid_2
-#
-#        position={k_1:acids[i_1],k_2:acids[i_2],interval_length:modification_site.lower()}
-#        keys=list(position.keys())
-#        keys.sort()
-#        motif=position[keys[0]]+'.'*(keys[1]-keys[0]-1)+position[keys[1]]+'.'*(keys[2]-keys[1]-1)+position[keys[2]]        
-#        motifs.append(motif)
-#    
-#    #составление таблицы
-#    table=pd.DataFrame({'Motif':motifs,'p_value':list(double.values())})     
-#    
-#    utils.saving_table(results_saving_dir,table,interval_length,'double')
-#    logging.info(str(len(table['Motif'].values))+u' double (two acid length) motifs were identificated')
-#    
-#    result=list(double.keys())
-#    
-#    return result
 
+def counter_triples(dataset,i_1,i_2,i_3,k_1,k_2,k_3,acids):
+    count=0
+    AA_1,AA_2,AA_3=acids[i_1],acids[i_2],acids[i_3]
+    for elem in dataset:
+        if (elem[k_1]==AA_1) and (elem[k_2]==AA_2) and (elem[k_3]==AA_3):
+            count+=1
+    return count
 
-# In[115]:
-
-
-def triple_motifs(chi2_selection,double_motifs,acids,intervals,background,interval_length,results_saving_dir,modification_site):
+def triple_motifs(primary_motifs,double_motifs,acids,intervals,background,interval_length,results_saving_dir,modification_site):
     #составили всевозможные пары тройных мотивов
-    triple_motifs=[]
-    for i in range(len(double_motifs)):
-        for l in range(len(chi2_selection)):
-            pair_1,pair_2=double_motifs[i]
-            if (chi2_selection[l]!=pair_1) and (chi2_selection[l]!=pair_2):
-                triple_motifs.append((pair_1,pair_2,chi2_selection[l]))
-    
-    #unpacking
-    triple_motifs_selected=[]
-    occurrences=[]
-    expactations=[]
-    p_values=[]
-    for elem in triple_motifs:
-        acid_1,acid_2,acid_3=elem
-        i_1,k_1=acid_1
-        i_2,k_2=acid_2
-        i_3,k_3=acid_3
-        observed=0
-        fasta=0
-        for elem in intervals:
-            if (elem[k_1]==acids[i_1]) and (elem[k_2]==acids[i_2]) and (elem[k_3]==acids[i_3]):
-                observed+=1
-        for elem in background:
-            if (elem[k_1]==acids[i_1]) and (elem[k_2]==acids[i_2]) and (elem[k_3]==acids[i_3]):
-                fasta+=1
-        occurrences.append(observed)
-        expected=(fasta/len(background))*len(intervals)
-        expactations.append(expected)
+#    table=((double_motifs.where(double_motifs['Observed']>=10)).dropna()).reset_index()
+    b=len(double_motifs['Observed'].values)
+    table=(double_motifs.loc[double_motifs['p-value']<0.05/b][double_motifs['Observed']>=10]).reset_index()
+    del table['index']
 
-    #отбор по встречаемости
-        if observed>10:
-            chisq,p_value=chisquare([observed,len(intervals)-observed],f_exp=[expected,len(intervals)-expected])
-            triple_motifs_selected.append(((i_1,k_1),(i_2,k_2),(i_3,k_3)))
-            p_values.append(p_value)
+    double_vector=np.zeros((len(table['Number motif'].values),interval_length*2+1))
+    for i,ik in enumerate(table['Number motif'].values):
+        double_vector[i,:]=table['Number motif'].values[i]
+    print(double_vector[0])
 
+    vector=np.zeros((len(primary_motifs['Number motif'].values),interval_length*2+1)) 
+    for i,ik in enumerate(primary_motifs['Number motif'].values):
+        vector[i,:]=primary_motifs['Number motif'].values[i]
+    print(vector.shape)
     
-    #отбор по вероятности
-    triple={}
-    for i in range(len(p_values)):
-        if p_values[i]<0.05/len(p_values):
-            key=triple_motifs_selected[i]
-            triple[key]=p_values[i]
-    
-    #написание мотива
-    motifs=[]
-    for elem in list(triple.keys()):
-        acid_1,acid_2,acid_3=elem
-        i_1,k_1=acid_1
-        i_2,k_2=acid_2
-        i_3,k_3=acid_3
-
-        position={k_1:acids[i_1],k_2:acids[i_2],k_3:acids[i_3],interval_length:modification_site.lower()}
-        keys=list(position.keys())
-        keys.sort()
-        motif=position[keys[0]]+'.'*(keys[1]-keys[0]-1)+position[keys[1]]+'.'*(keys[2]-keys[1]-1)+position[keys[2]]+'.'*(keys[3]-keys[2]-1)+position[keys[3]]        
-        motifs.append(motif)
- 
-    #составление таблицы
-    table=pd.DataFrame({'Motif':motifs,'p_value':list(triple.values())})     
-    
-    utils.saving_table(results_saving_dir,table,interval_length,'triple')
-    logging.info(str(len(table['Motif'].values))+u' triple (three acid length) motifs were identificated')
-    
-    result=list(triple.keys())
-    
-    print(motifs)
-    return result       
-        
+    b=np.tensordot(double_vector,vector.T,axes=0)
+    matrix=np.zeros((len(vector),len(double_vector),interval_length*2+1))
+    back_len=len(background)
+    int_len=len(intervals)
+    for i,ik in enumerate(b):
+        for j,jk in enumerate(b[0]):
+            matrix[j,i,:]=np.diag(b[i,:,:,j])
+            
+#    print(matrix.shape)
+#    print(matrix[0][0],vector[0],double_vector[0])
+    result=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),
+                                                'Observed':np.array([]),'Expected':np.array([]),
+                                                                    'p-value':np.array([])})     
+    for i in range(len(vector)):
+        for j in range(len(double_vector)):
+            elem=matrix[i,j]
+            print('elem',elem)
+            if (elem.any())==False:
+                motif=vector[i]+double_vector[j]
+                print('motif',motif)
+                #положение аминокислот в интервале
+                
+                k_1,k_2,k_3=np.nonzero(motif)[0][0],np.nonzero(motif)[0][1],np.nonzero(motif)[0][2]
+                #номера аминокислот
+                i_1,i_2,i_3=int(motif[k_1]),int(motif[k_2]),int(motif[k_3])
+                print('!',k_1,k_2,k_3,i_1,i_2,i_3)
+                observed=counter_triples(intervals,i_1,i_2,i_3,k_1,k_2,k_3,acids)
+                fasta=counter_triples(background,i_1,i_2,i_3,k_1,k_2,k_3,acids)
+                expected=(fasta/back_len)*int_len
+                chisq,p_value=chisquare([observed,int_len-observed],f_exp=[expected,int_len-expected])
+                position={k_1:acids[i_1],k_2:acids[i_2],k_3:acids[i_3],interval_length:modification_site.lower()}
+                keys=list(position.keys())
+                keys.sort()
+                motif_l=''.join([position[keys[0]],'.'*(keys[1]-keys[0]-1),position[keys[1]],'.'*(keys[2]-keys[1]-1),position[keys[2]],'.'*(keys[3]-keys[2]-1),position[keys[3]]])
+                result=result.append({'Letter motif':motif_l,'Number motif':motif,
+                                'Observed':observed,'Expected':expected,
+                                                    'p-value':p_value},
+                                                    ignore_index=True)               
+            
+            
+            
+    return result
 
 
 #делаем прогу для 4хбуквенного мотива
@@ -547,9 +388,9 @@ def quadruple_motifs(primary_motif,triple_motifs,acids,intervals,background,inte
 #улучшенная версия 2
 def motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir):
     vector,single=primary_motifs(acids,interval_length,chi2_selection,results_saving_dir,modification_site)
-    double=double_motifs(vector,single,acids,intervals,background,results_saving_dir,interval_length,modification_site)
-#    if double is not None:
-#        triple=triple_motifs(chi2_selection,double,acids,intervals,background,interval_length,results_saving_dir,modification_site)
+    double=double_motifs(vector,acids,intervals,background,results_saving_dir,interval_length,modification_site)
+    if double is not None:
+        triple=triple_motifs(single,double,acids,intervals,background,interval_length,results_saving_dir,modification_site)
 #        if triple is not None:
 #            quadruple=quadruple_motifs(single,triple,acids,intervals,background,interval_length,results_saving_dir,modification_site)
 #        else:
@@ -557,4 +398,4 @@ def motifs(acids,chi2_selection,interval_length,modification_site,background,int
 #    else:
 #        triple=None
 #    return single,double,triple,quadruple
-    return single,double
+    return single,double,triple
