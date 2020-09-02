@@ -311,7 +311,7 @@ def output_experimental(working_dir,name_sample,Peptides,interval_length,modific
     background_n=background_n_matrix(acids,interval_length,background,results_saving_dir)
     expected_FASTA,chi2_results,chi2_selection=chi2.p_value(background_n,occurrences,interval_length,modification_site,acids,results_saving_dir)
 #    single,double,triple,quadruple=chi2.motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
-    single,double,triple=chi2.motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
+    single,double,triple,quadruple=chi2.motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
 
 #    print(single,double,triple,quadruple)
 #    logging.info(msg='Program was finished successfully')
