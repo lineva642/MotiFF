@@ -6,7 +6,7 @@ Created on Wed Aug 12 13:37:30 2020
 
 """
 
-ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
+ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D','-']
 import os
 from urllib.request import urlretrieve
 import pylab
@@ -26,8 +26,8 @@ import argparse
 import logging
 import chi2
 import binomial
-
-
+from collections import defaultdict
+import re
 
 def saving(args):
 
@@ -155,68 +155,69 @@ def mod_intervals_DB_experimental(Peptides, args, sample_saving_dir):
     logging.info(u'Set of '+str(len(mod_intervals))+u' modified intervals is ready') 
     return mod_intervals
 
-#правильная функция
-def FASTA_DB_creation(path_FASTA):
-    background_DB=dict()
-    #берем белок из белковой БД человека
-    for description, sequence in fasta.read(open(path_FASTA)):    
-        #ищем его номер
-        i=description.find('|')
-        k=description.rfind('|')
-        s=description[i+1:k]
-        #если белка нет в background БД записываем 
-        if s not in background_DB:
-            if sequence.count('X')==0:
-                background_DB[s]=sequence           
-    return  background_DB    
+# #правильная функция
+# def FASTA_DB_creation(path_FASTA):
+#     background_DB=dict()
+#     #берем белок из белковой БД человека
+#     for description, sequence in fasta.read(open(path_FASTA)):    
+#         #ищем его номер
+#         i=description.find('|')
+#         k=description.rfind('|')
+#         s=description[i+1:k]
+#         #если белка нет в background БД записываем 
+#         if s not in background_DB:
+#             if sequence.count('X')==0:
+#                 background_DB[s]=sequence           
+#     return  background_DB    
 
 
-#функция выделения интервалов для составления background
-def Background_creator(elem,i,interval_length):
-    #определим интервал поиска аминокислот        
-    #рассматриваем случай, когда сайт прибит к N-концу белка
-    if (i<=interval_length-1) and (len(elem)-i>interval_length):
-        #количество кислот слева
-        left=i
-        #количество рассматриваемых кислот справа
-        right=interval_length
-        interval=' '*(interval_length-left)+elem[i-left:i+right+1]
-    #рассматриваем случай, когда сайт прибит к C-концу белка    
-    elif  (i>interval_length-1) and (len(elem)-i<=interval_length):
-        left=interval_length
-        right=len(elem)-i-1
-        interval=elem[i-left:i+right+1]+' '*(interval_length-right)
-    #рассматриваем случай, когда белок маленький    
-    elif (i<=interval_length-1) and (len(elem)-i<=interval_length):
-        left=i
-        right=len(elem)-i-1
-        interval=' '*(interval_length-left)+elem[i-left:i+right+1]+' '*(interval_length-right)
-    #случай, когда можем рассмотреть интервал (-15,+15)    
-    else:
-        right=left=interval_length
-        interval=elem[i-left:i+right+1]
-    #выделяем наш интервал-последовательность из белка
-    #interval=elem[number-left:number+right+1]
-    return interval
+# #функция выделения интервалов для составления background
+# def Background_creator(elem,i,interval_length):
+#     #определим интервал поиска аминокислот        
+#     #рассматриваем случай, когда сайт прибит к N-концу белка
+#     if (i<=interval_length-1) and (len(elem)-i>interval_length):
+#         #количество кислот слева
+#         left=i
+#         #количество рассматриваемых кислот справа
+#         right=interval_length
+#         interval=' '*(interval_length-left)+elem[i-left:i+right+1]
+#     #рассматриваем случай, когда сайт прибит к C-концу белка    
+#     elif  (i>interval_length-1) and (len(elem)-i<=interval_length):
+#         left=interval_length
+#         right=len(elem)-i-1
+#         interval=elem[i-left:i+right+1]+' '*(interval_length-right)
+#     #рассматриваем случай, когда белок маленький    
+#     elif (i<=interval_length-1) and (len(elem)-i<=interval_length):
+#         left=i
+#         right=len(elem)-i-1
+#         interval=' '*(interval_length-left)+elem[i-left:i+right+1]+' '*(interval_length-right)
+#     #случай, когда можем рассмотреть интервал (-15,+15)    
+#     else:
+#         right=left=interval_length
+#         interval=elem[i-left:i+right+1]
+#     #выделяем наш интервал-последовательность из белка
+#     #interval=elem[number-left:number+right+1]
+#     return interval
 
 
 def background_maker(args):
 #    print('Making background DB')
     #хотим сделать background из идентифицированных белков
-    background_DB=FASTA_DB_creation(args.fasta)
-#    print('background_array_FASTA',len(background_DB))
-    background=[]
-    for elem in background_DB:
-        s=background_DB[elem]
-        for i in range(len(s)):
-            #ищем совпадающие с сайтом модификации
-            if s[i] == args.modification_site:
-                interval = Background_creator(s, i, args.interval_length)
-                background.append(interval)  
-    # background=background_array_FASTA(args.fasta, args.modification_site,interval_length)
+    bg_fasta = dict()
+    bg = defaultdict()
+    background = []
+    with fasta.read(args.fasta) as f:
+        for name, sequence in f:
+            name_id = name.split('|')[1]
+            bg_fasta[name_id] = sequence 
+            extended_seq = ''.join(['-' * args.interval_length, sequence, '-' * args.interval_length])
+            mod_aa_indexes = re.finditer(args.modification_site, extended_seq)
+            bg_intervals = [extended_seq[i.span()[0] - args.interval_length: i.span()[0] + args.interval_length + 1] for i in mod_aa_indexes]
+            bg[name_id] = bg_intervals
+            background += bg_intervals
+
     logging.info(u'Set of ' + str(len(background))+ u' background intervals is created')
-    logging.debug(u'Background DB is ready')
-#    print('Background DB is ready')    
+    logging.debug(u'Background DB is ready')    
     return background   
 
 
@@ -229,10 +230,10 @@ def background_maker(args):
 def n_calculator(intervals,interval_length,results_saving_dir, acids=ACIDS_LIST):
     #создаем матрицу для подсчета числа n и забиваем ее нулями
     n=[]
+    occurances = pd.DataFrame(indexes=acids)
     for i in range(len(acids)):
         a=[0]*(interval_length*2+1)
         n.append(a)
-
     for interval in intervals:
         for k in range(len(interval)):
             #проверяем какая кислота из заданного набора стоит на зафиксированной позиции
