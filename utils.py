@@ -3,7 +3,10 @@
 Created on Wed Aug 12 13:37:30 2020
 
 @author: Lab006
+
 """
+
+ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
 import os
 from urllib.request import urlretrieve
 import pylab
@@ -13,7 +16,7 @@ import pandas as pd
 from pyteomics import fasta
 import gzip
 #import seaborn as sns
-from scipy.stats import binom
+# from scipy.stats import binom
 import math
 import random
 import profile
@@ -24,11 +27,13 @@ import logging
 import chi2
 import binomial
 
-def saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm):
 
-    sample_saving_dir = os.path.join(working_dir,name_sample)
-    results_saving_dir = os.path.join(sample_saving_dir,modification+'_'+
-    modification_site+str(interval_length)+'_'+algorithm)
+
+def saving(args):
+
+    sample_saving_dir = os.path.join(args.working_dir, args.name_sample)
+    results_saving_dir = os.path.join(sample_saving_dir, args.modification + '_' +
+                                      args.modification_site + str(args.interval_length) + '_' + args.algorithm)
 
     if not (os.path.exists(sample_saving_dir)):
         os.mkdir(sample_saving_dir)
@@ -141,10 +146,10 @@ def interval_maker_experimental(idPeptides,interval_length,modification_site):
 
 
 #формирование набора интервалов
-def mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir):
+def mod_intervals_DB_experimental(Peptides, args, sample_saving_dir):
 #    print('Making intervals DB')
-    idPeptides=peptide_identification(path_FASTA,Peptides,sample_saving_dir)
-    mod_intervals=interval_maker_experimental(idPeptides,interval_length,modification_site)
+    idPeptides=peptide_identification(args.fasta, Peptides, sample_saving_dir)
+    mod_intervals=interval_maker_experimental(idPeptides, args.interval_length, args.modification_site)
 #    print('Intervals DB is ready!')
     logging.debug(u'Intervals DB is ready')
     logging.info(u'Set of '+str(len(mod_intervals))+u' modified intervals is ready') 
@@ -195,26 +200,20 @@ def Background_creator(elem,i,interval_length):
     return interval
 
 
-#формирование набора интервалов из белоковой БД
-def background_array_FASTA(path_FASTA,modification_site,interval_length):
+def background_maker(args):
+#    print('Making background DB')
     #хотим сделать background из идентифицированных белков
-    background_DB=FASTA_DB_creation(path_FASTA)
+    background_DB=FASTA_DB_creation(args.fasta)
 #    print('background_array_FASTA',len(background_DB))
     background=[]
-
     for elem in background_DB:
         s=background_DB[elem]
         for i in range(len(s)):
             #ищем совпадающие с сайтом модификации
-            if s[i]==modification_site:
-                interval=Background_creator(s,i,interval_length)
-                background.append(interval)               
-    return background 
-
-
-def background_maker(modification_site,interval_length,path_FASTA,modification):
-#    print('Making background DB')
-    background=background_array_FASTA(path_FASTA,modification_site,interval_length)
+            if s[i] == args.modification_site:
+                interval = Background_creator(s, i, args.interval_length)
+                background.append(interval)  
+    # background=background_array_FASTA(args.fasta, args.modification_site,interval_length)
     logging.info(u'Set of ' + str(len(background))+ u' background intervals is created')
     logging.debug(u'Background DB is ready')
 #    print('Background DB is ready')    
@@ -227,7 +226,7 @@ def background_maker(modification_site,interval_length,path_FASTA,modification):
 #N_calculator= lambda intervals:len(intervals)
 
 
-def n_calculator(acids,intervals,interval_length,results_saving_dir):
+def n_calculator(intervals,interval_length,results_saving_dir, acids=ACIDS_LIST):
     #создаем матрицу для подсчета числа n и забиваем ее нулями
     n=[]
     for i in range(len(acids)):
@@ -255,8 +254,7 @@ def n_calculator(acids,intervals,interval_length,results_saving_dir):
     logging.debug(msg=u'Occurrence matrix was created')                    
     return n
 
-
-def background_n_matrix(acids,interval_length,background,results_saving_dir):
+def background_n_matrix(interval_length,background,results_saving_dir, acids=ACIDS_LIST):
     background_n=[]
     path=os.path.join(results_saving_dir,'background.txt')
     saving=open(path,'w')
@@ -293,56 +291,27 @@ def saving_table(results_saving_dir,result,interval_length,name):
     path=os.path.join(results_saving_dir,'table'+str(interval_length)+'_'+name+'.csv')
     result.to_csv(path)   
 
-
-# Для алгоритма chi2
-
-
-def output_experimental(working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
-    #path_FASTA='/home/vikalin/Article/HUMAN.fasta.gz'
-    #path_identification='/home/vikalin/Article/identification.txt'
-    sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,'chi2')
-#    path_sample,path_modification,path_results=saving(name_sample,interval_length,modification,modification_site,'chi2')
-    acids=['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
-    intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir)
-#    print('Длина интервалов в exp',len(intervals))
-    background=background_maker(modification_site,interval_length,path_FASTA,modification)
-#    print('Длина интервалов в back',len(background))
-    occurrences=n_calculator(acids,intervals,interval_length,results_saving_dir)
-    background_n=background_n_matrix(acids,interval_length,background,results_saving_dir)
-    expected_FASTA,chi2_results,chi2_selection=chi2.p_value(background_n,occurrences,interval_length,modification_site,acids,results_saving_dir)
-#    single,double,triple,quadruple=chi2.motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
-    single,double,triple,quadruple=chi2.motifs(acids,chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir)
-
-#    print(single,double,triple,quadruple)
-#    logging.info(msg='Program was finished successfully')
-
-    
-    return chi2_results,chi2_selection,intervals,background
-    
-def output_experimental_bi(working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA,algorithm):
-    sample_saving_dir,results_saving_dir=saving(working_dir,name_sample,interval_length,modification,modification_site,algorithm)
-    acids=['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D',' ']
-    intervals=mod_intervals_DB_experimental(path_FASTA,Peptides,interval_length,modification_site,sample_saving_dir)
-#    print('Длина интервалов в exp',len(intervals))
-    background=background_maker(modification_site,interval_length,path_FASTA,modification)
-#    print('Длина интервалов в back',len(background))
-    P=binom.P_counter_bi(intervals,interval_length,modification_site,acids,background,results_saving_dir)
-    occurrences=binom.occurrences_counter_bi(intervals,interval_length,acids,modification_site,results_saving_dir)
-    P_final=binom.final_validation_bi(acids,interval_length,occurrences,P)
-    single,double,triple,quadruple=binom.motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,results_saving_dir)
-#    print(single,double,triple,quadruple)
-#    logging.info(msg='Program was finished successfully')
-    return P,occurrences,intervals,background    
-
-def output(algorithm,working_dir,name_sample,Peptides,interval_length,modification_site,modification,path_FASTA):
-    if algorithm=="binom":
+def output(Peptides, args):
+    sample_saving_dir,results_saving_dir = saving(args)
+    intervals = mod_intervals_DB_experimental(Peptides, args, sample_saving_dir)
+    background=background_maker(args)
+    if args.algorithm=="binom":
 #        print('I AM HERE')
-        a,b,c,d=output_experimental_bi(working_dir,name_sample,Peptides,interval_length,
-                                       modification_site,modification,path_FASTA,algorithm)
-        #a,b,c,d=P,occurrences,intervals,background
+        P = binomial.P_counter_bi(intervals, args.interval_length, args.modification_site, background, results_saving_dir, acids=ACIDS_LIST)
+        occurrences = binomial.occurrences_counter_bi(intervals, args.interval_length, args.modification_site, results_saving_dir, acids=ACIDS_LIST)
+        P_final = binomial.final_validation_bi(args.interval_length, occurrences, P, acids=ACIDS_LIST)
+        single, double, triple, quadruple = binomial.motifs_bi(P_final, args.interval_length, args.modification_site, 
+                                                               args.background, intervals, P, results_saving_dir, acids=ACIDS_LIST)
+
+        logging.info(msg='Program was finished successfully') 
+        return P, occurrences, intervals, background
     else:
-        a,b,c,d=output_experimental(working_dir,name_sample,Peptides,interval_length,
-                                    modification_site,modification,path_FASTA)
-        #a,b,c,d=chi2_results,chi2_selection,intervals,background
-    logging.info(msg='Program was finished successfully')                                
-    return  a,b,c,d  
+        occurrences = n_calculator( intervals, args.interval_length, results_saving_dir, acids=ACIDS_LIST)
+        background_n = background_n_matrix(args.interval_length, background, results_saving_dir, acids=ACIDS_LIST)
+        expected_FASTA, chi2_results, chi2_selection = chi2.p_value(background_n, occurrences, args.interval_length,
+                                                                    args.modification_site,results_saving_dir, acids=ACIDS_LIST)
+        single, double, triple, quadruple = chi2.motifs(chi2_selection, args.interval_length, args.modification_site, background,
+                                                        intervals, results_saving_dir, acids=ACIDS_LIST)
+        logging.info(msg='Program was finished successfully') 
+        return chi2_results,chi2_selection,intervals,background
+

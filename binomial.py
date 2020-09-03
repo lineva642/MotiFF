@@ -26,7 +26,7 @@ import utils
 
 ##АЛГОРИТМ BINOMIAL
 
-def p_value_bi(acids,modification_site,interval_length,background,background_n):
+def p_value_bi(modification_site,interval_length,background,background_n, acids=utils.ACIDS_LIST):
     background_n_1=[]
     for i in range(len(acids)):
         if acids[i]==modification_site:
@@ -44,7 +44,7 @@ def p_value_bi(acids,modification_site,interval_length,background,background_n):
     logging.debug(msg=u'p for each background occurrence matrix element was counted')            
     return background_n_1
 
-def P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir):
+def P_matrix_bi(interval_length,n,N,background_n_1,results_saving_dir, acids=utils.ACIDS_LIST):
     P=[]
     path=os.path.join(results_saving_dir,'P.txt')
     saving=open(path,'w')
@@ -67,21 +67,21 @@ def P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir):
     logging.debug(msg=u'Binomal probability for each occurrence matrix element was counted')    
     return P
 
-def P_counter_bi(intervals,interval_length,modification_site,acids,background,results_saving_dir):
+def P_counter_bi(intervals, interval_length, modification_site, background, results_saving_dir, acids=utils.ACIDS_LIST):
 #    print('Probability is being counted')
-    n=utils.n_calculator(acids,intervals,interval_length,results_saving_dir)
-    N_calculator= lambda intervals:len(intervals)
-    N=N_calculator(intervals)
-    background_n=utils.background_n_matrix(acids,interval_length,background,results_saving_dir)
-    background_n_1=p_value_bi(acids,modification_site,interval_length,background,background_n)
-    P=P_matrix_bi(acids,interval_length,n,N,background_n_1,results_saving_dir)
+    n = utils.n_calculator(intervals, interval_length, results_saving_dir,acids=utils.ACIDS_LIST)
+    N_calculator = lambda intervals:len(intervals)
+    N = N_calculator(intervals)
+    background_n = utils.background_n_matrix(interval_length,background,results_saving_dir, acids=utils.ACIDS_LIST)
+    background_n_1=p_value_bi(modification_site,interval_length,background,background_n, acids=utils.ACIDS_LIST)
+    P = P_matrix_bi(interval_length,n,N,background_n_1,results_saving_dir, acids=utils.ACIDS_LIST)
 #    print('Probability is being counted')
     logging.info(u'Binomial probability for each amino acid in matrix was counted')
     return P
 
 #рассчитаем occurrences
-def occurrences_counter_bi(intervals,interval_length,acids,modification_site,results_saving_dir):
-    n=utils.n_calculator(acids,intervals,interval_length,results_saving_dir)
+def occurrences_counter_bi(intervals, interval_length, modification_site, results_saving_dir, acids=utils.ACIDS_LIST):
+    n=utils.n_calculator(intervals, interval_length, results_saving_dir, acids=utils.ACIDS_LIST)
 #    N=N_calculator(intervals)
     path=os.path.join(results_saving_dir,'occurrences.txt')
     saving=open(path,'w')
@@ -100,7 +100,7 @@ def occurrences_counter_bi(intervals,interval_length,acids,modification_site,res
     return occurrences 
 
 #отбор по вероятности
-def P_validation_bi(acids,interval_length,P):
+def P_validation_bi(interval_length, P, acids=utils.ACIDS_LIST):
     P1=[]
     for i in range(len(acids)):
         a=[0]*(interval_length*2+1)
@@ -114,7 +114,7 @@ def P_validation_bi(acids,interval_length,P):
     return P1
 
 #отбор по встречаемости более 10
-def occurrences_validation_bi(acids,interval_length,occurrences):
+def occurrences_validation_bi(interval_length, occurrences, acids=utils.ACIDS_LIST):
     occurrences_1=[]
     for i in range(len(acids)):
         a=[0]*(interval_length*2+1)
@@ -127,9 +127,9 @@ def occurrences_validation_bi(acids,interval_length,occurrences):
 
 #соединим валидацию по occurances и p-values
 #нужно совместить occurances_1 & P1
-def final_validation_bi(acids,interval_length,occurrences,P):
-    occurrences_1=occurrences_validation_bi(acids,interval_length,occurrences)
-    P1=P_validation_bi(acids,interval_length,P)
+def final_validation_bi(interval_length, occurrences, P, acids=utils.ACIDS_LIST):
+    occurrences_1=occurrences_validation_bi(interval_length, occurrences, acids=utils.ACIDS_LIST)
+    P1=P_validation_bi(interval_length, P, acids=utils.ACIDS_LIST)
     for i in range(len(acids)):
         for k in range(interval_length*2+1):
             if occurrences_1[i][k]>=10:
@@ -140,7 +140,7 @@ def final_validation_bi(acids,interval_length,occurrences,P):
     return P1 
 
 
-def single_motifs_creator_bi(acids,final_P,P,background,intervals,interval_length,modification_site):
+def single_motifs_creator_bi(final_P, P, background, intervals, interval_length, modification_site, acids=utils.ACIDS_LIST):
     indexes=[]
     location=[]
     probability=[]
@@ -171,7 +171,7 @@ def single_motifs_creator_bi(acids,final_P,P,background,intervals,interval_lengt
     return single_motifs 
 
 
-def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,interval_length,modification_site,results_saving_dir):
+def double_motifs_creator_bi(single_motifs_creator, background, intervals, P, interval_length, modification_site, results_saving_dir, acids=utils.ACIDS_LIST):
     #для каждого претендента нужно построить двойной комплексный мотив и оценить вероятность такого мотива
     indexes=[]
     location=[]
@@ -298,7 +298,7 @@ def double_motifs_creator_bi(acids,single_motifs_creator,background,intervals,P,
     logging.info(str(len(double_motifs_selection_copy['Occurrences'].values))+u' double (two acid length) motifs were identificated')
     return double_motifs_selection_copy
 
-def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,intervals,modification_site,interval_length,results_saving_dir):
+def triple_motifs_creator_bi(double_motifs, single_motifs, background, intervals, modification_site, interval_length, results_saving_dir, acids=utils.ACIDS_LIST):
 
     indexes=[]
     location=[]
@@ -411,7 +411,7 @@ def triple_motifs_creator_bi(acids,double_motifs,single_motifs,background,interv
     logging.info(str(len(triple_motifs_selection_copy['Occurrences'].values))+u' triple (three acid length) motifs were identificated')    
     return triple_motifs_selection_copy
 
-def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,intervals,modification_site,interval_length,results_saving_dir):
+def quadruple_motifs_creator_bi(triple_motifs, single_motifs, background, intervals, modification_site, interval_length, results_saving_dir, acids=utils.ACIDS_LIST):
 
     indexes=[]
     location=[]
@@ -535,17 +535,17 @@ def quadruple_motifs_creator_bi(acids,triple_motifs,single_motifs,background,int
     logging.info(str(len(fourth_motifs_selection_copy['Occurrences'].values))+u' quadruple (four acid length) motifs were identificated')    
     return fourth_motifs_selection_copy
 
-def motifs_bi(acids,P_final,interval_length,modification_site,background,intervals,P,results_saving_dir):
+def motifs_bi(P_final,interval_length,modification_site,background,intervals,P,results_saving_dir, acids=utils.ACIDS_LIST):
     #primary=primary_motifs_creator(acids,P_final,interval_length,modification_site)
-    single=single_motifs_creator_bi(acids,P_final,P,background,intervals,interval_length,modification_site)
+    single=single_motifs_creator_bi(P_final,P,background,intervals,interval_length,modification_site, acids=utils.ACIDS_LIST)
     utils.saving_table(results_saving_dir,single,interval_length,'single')
-    double=double_motifs_creator_bi(acids,single,background,intervals,P,interval_length,modification_site,results_saving_dir)
+    double=double_motifs_creator_bi(single,background,intervals,P,interval_length,modification_site,results_saving_dir, acids=utils.ACIDS_LIST)
     if double is not None:
         utils.saving_table(results_saving_dir,double,interval_length,'double')
-        triple=triple_motifs_creator_bi(acids,double,single,background,intervals,modification_site,interval_length,results_saving_dir)
+        triple=triple_motifs_creator_bi(double,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
     if triple is not None:
         utils.saving_table(results_saving_dir,triple,interval_length,'triple')
-        quadruple=quadruple_motifs_creator_bi(acids,triple,single,background,intervals,modification_site,interval_length,results_saving_dir)
+        quadruple=quadruple_motifs_creator_bi(triple,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
     if quadruple is not None:
         utils.saving_table(results_saving_dir,quadruple,interval_length,'quadruple')
     return single,double,triple,quadruple

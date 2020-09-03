@@ -24,7 +24,6 @@ import argparse
 import logging
 import utils
 
-
 parser = argparse.ArgumentParser(description='PTM identification in modified peptides')
 parser.add_argument('dataset', type=str, help ='Path to experimental dataset')
 parser.add_argument('fasta',type=str, help='Path to FASTA')
@@ -38,14 +37,14 @@ parser.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, 
 args = parser.parse_args()
 
 
-sample_saving_dir,results_saving_dir=utils.saving(args.working_dir,args.name_sample,args.interval_length,args.modification,args.modification_site,args.algorithm)    
+# sample_saving_dir,results_saving_dir=utils.saving(args.working_dir,args.name_sample,args.interval_length,args.modification,args.modification_site,args.algorithm)    
 #logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level = logging.DEBUG, filename=os.path.join(results_saving_dir,'mylog.log'))
 levels = [logging.WARNING, logging.INFO, logging.DEBUG]
 logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level=levels[args.verbosity])
 logging.info(msg=u'Directories for result saving are created')
 
 
-path_FASTA=args.fasta    
+# path_FASTA=args.fasta    
 
 
 experimental_dir=args.dataset
@@ -74,4 +73,4 @@ logging.debug(msg=u'Modified peptides dataframe is created')
 
 
 
-a,b,c,d=utils.output(args.algorithm,args.working_dir,args.name_sample,Peptides,args.interval_length,args.modification_site,args.modification,path_FASTA)
+a,b,c,d=utils.output(Peptides,args)
