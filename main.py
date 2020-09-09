@@ -60,11 +60,11 @@ Peptides=((df.loc[df['Amb?'] == 'UNIQUE']).reset_index()).loc[:,df.columns.inter
 indexes=[elem.replace('*','') for elem in Peptides['Peptide']]
 Peptides['Mod_Peptide']=indexes  
 Peptides.columns = ['Mod_Peptide','Peptide']
-Peptides['Protein']=None
+# Peptides['Protein']=None
 ind=Peptides['Peptide'].values
 Peptides['index']=ind
 Peptides=Peptides.set_index('index')
-
+# print(Peptides)
 logging.debug(msg=u'Modified peptides dataframe is created')
 
 
