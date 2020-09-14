@@ -50,20 +50,37 @@ logging.info(msg=u'Directories for result saving are created')
 experimental_dir=args.dataset
 
 
+# #создаем таблицу пептидов на вход в программу из списка модифицированных пептидов
+# def peptides_table(args):
+#     if os.path.exists(os.path.join(sample_saving_dir, 'peptide_identification.csv')):
+#         idPeptides=pd.read_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'))
+#     else:    
+#         peptides=[]
+#         with open(args.dataset) as f:
+#             for line in f:
+#                 peptides.append(line[:-1])
+#         Peptides=pd.DataFrame({'Peptide':peptides})
+#         Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length], axis=1)
+#         # print(background)
+#         Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
+#         # print(Peptides)
+#         idPeptides = Peptides[Peptides['unique'] == True]
+#     print('Peptides',idPeptides)
+#     return idPeptides
 
-#создаем таблицу пептидов на вход в программу
-xl = pd.ExcelFile(experimental_dir)
-df1 = xl.parse('Sheet1')
-df1.columns=df1.values[0]
-df=df1.drop(0)
-Peptides=((df.loc[df['Amb?'] == 'UNIQUE']).reset_index()).loc[:,df.columns.intersection(['Peptide']) ]
-indexes=[elem.replace('*','') for elem in Peptides['Peptide']]
-Peptides['Mod_Peptide']=indexes  
-Peptides.columns = ['Mod_Peptide','Peptide']
-# Peptides['Protein']=None
-ind=Peptides['Peptide'].values
-Peptides['index']=ind
-Peptides=Peptides.set_index('index')
+# #создаем таблицу пептидов на вход в программу
+# xl = pd.ExcelFile(experimental_dir)
+# df1 = xl.parse('Sheet1')
+# df1.columns=df1.values[0]
+# df=df1.drop(0)
+# Peptides=((df.loc[df['Amb?'] == 'UNIQUE']).reset_index()).loc[:,df.columns.intersection(['Peptide']) ]
+# indexes=[elem.replace('*','') for elem in Peptides['Peptide']]
+# Peptides['Mod_Peptide']=indexes  
+# Peptides.columns = ['Mod_Peptide','Peptide']
+# # Peptides['Protein']=None
+# ind=Peptides['Peptide'].values
+# Peptides['index']=ind
+# Peptides=Peptides.set_index('index')
 # print(Peptides)
 logging.debug(msg=u'Modified peptides dataframe is created')
 
@@ -73,4 +90,4 @@ logging.debug(msg=u'Modified peptides dataframe is created')
 
 
 
-a,b,c,d=utils.output(Peptides,args)
+a,b,c,d=utils.output(args)

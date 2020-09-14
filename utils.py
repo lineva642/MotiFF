@@ -148,17 +148,20 @@ def saving(args):
 
 def fasta_match(row, bg_fasta, interval_length):
     intervals = []
+    k=0
+    print(row['Peptide'],k)
     for name, seq in bg_fasta.items():
         i = 0
-        start = seq[i:].find(row['Peptide'])
+        start = seq[i:].find(row['Peptide'].replace('*',''))
         i = start
         while start >= 0:
-            for asterisks, modif in enumerate(re.finditer('\*', row['Mod_Peptide']), 1):
+            for asterisks, modif in enumerate(re.finditer('\*', row['Peptide']), 1):
                 interval_start = i + modif.span()[0] - interval_length - asterisks
                 interval_end = interval_start + 2 * interval_length + 1
                 intervals.append(seq[interval_start: interval_end])
-            start = seq[i+1:].find(row['Peptide'])
+            start = seq[i+1:].find(row['Peptide'].replace('*',''))
             i += start + 1
+    k+=1        
     return intervals
 
 #формирование набора интервалов
@@ -273,9 +276,12 @@ def get_occurences(intervals_list, interval_length, saving_file, acids=ACIDS_LIS
     # saving.close()
     # logging.debug(msg=u'Occurrence matrix was created')                    
     # return n
-    occurance = pd.DataFrame(index=acids)
+    # occurance = pd.DataFrame(index=acids)
+    # i=((intervals_list.replace('[','')).replace("'",'')).split(']')
+    # print(i[:-1])
     df = pd.DataFrame([list(i) for i in intervals_list], columns=range(-interval_length, interval_length + 1))
     occ = df.apply(aa_counter, axis=0)
+    print(occ)
     occ.to_csv(saving_file, sep='\t')
     return occ
 
@@ -301,33 +307,55 @@ def get_occurences(intervals_list, interval_length, saving_file, acids=ACIDS_LIS
 #                 else:
 #                     continue
               
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-            if k!=interval_length:
-                saving.write(str(background_n[i][k])+' ')
-            else:
-                saving.write(str(0)+' ')
-        saving.write('\n')
-    saving.close()
-    logging.debug(msg=u'Background occurrence matrix was created')                     
-    return background_n
+    # for i in range(len(acids)):
+    #     for k in range(interval_length*2+1):
+    #         if k!=interval_length:
+    #             saving.write(str(background_n[i][k])+' ')
+    #         else:
+    #             saving.write(str(0)+' ')
+    #     saving.write('\n')
+    # saving.close()
+    # logging.debug(msg=u'Background occurrence matrix was created')                     
+    # return background_n
 
 def saving_table(results_saving_dir,result,interval_length,name):
     path=os.path.join(results_saving_dir,'table'+str(interval_length)+'_'+name+'.csv')
     result.to_csv(path)   
-
-def output(Peptides, args):
-    sample_saving_dir,results_saving_dir = saving(args)
     
+def peptides_table(args,sample_saving_dir,bg_fasta):
+    if os.path.exists(os.path.join(sample_saving_dir, 'peptide_identification.csv')):
+        
+        idPeptides=pd.read_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'),sep=',',usecols=[1,2])
+        for i in range(len(idPeptides['fasta_match'].index)):
+            idPeptides['fasta_match'][i]=(((idPeptides['fasta_match'][i].replace('[','')).replace(']','')).replace("'",'')).split(',')
+    else:    
+        peptides=[]
+        with open(args.dataset) as f:
+            for line in f:
+                peptides.append(line[:-1])
+        Peptides=pd.DataFrame({'Peptide':peptides})
+        Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length], axis=1)
+        # print(background)np
+        Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
+        # print(Peptides)
+        idPeptides = Peptides[Peptides['unique'] == True]
+        idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
+        
+    return idPeptides    
+
+def output(args):
+    sample_saving_dir,results_saving_dir = saving(args)
     background, bg_fasta = background_maker(args)
-    Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length], axis=1)
-    # print(background)
-    Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
-    # print(Peptides)
-    idPeptides = Peptides[Peptides['unique'] == True]
+    idPeptides=peptides_table(args,sample_saving_dir,bg_fasta)
     print(idPeptides)
-    # idPeptides['intervals'] = idPeptides.apply(interval_maker_experimental, args=[bg_fasta, args], axis=1)
-    idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
+    # Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length], axis=1)
+    # # print(background)
+    # Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
+    # # print(Peptides)
+    # idPeptides = Peptides[Peptides['unique'] == True]
+    # print(idPeptides)
+    
+    # idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
 
     # intervals = mod_intervals_DB_experimental(Peptides, args, bg_fasta, sample_saving_dir)
     # intervals = interval_maker_experimental(idPeptides, args, bg_fasta)
@@ -342,7 +370,8 @@ def output(Peptides, args):
         logging.info(msg='Program was finished successfully') 
         return P, occurrences, intervals, background
     else:
-        occurrences = get_occurences( idPeptides['fasta_match'].sum(), args.interval_length,
+        
+        occurrences = get_occurences( (idPeptides['fasta_match']).sum(), args.interval_length,
                                      os.path.join(results_saving_dir, 'occurences.csv'), 
                                      acids=ACIDS_LIST)
         background_n = get_occurences(background, args.interval_length, 'background.csv')
