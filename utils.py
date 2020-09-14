@@ -146,7 +146,7 @@ def saving(args):
     #         mod_intervals.append(interval)                   
     # return mod_intervals
 
-def fasta_match(row, bg_fasta, interval_length):
+def fasta_match(row, bg_fasta, interval_length,modification_site):
     intervals = []
     k=0
     print(row['Peptide'],k)
@@ -158,7 +158,11 @@ def fasta_match(row, bg_fasta, interval_length):
             for asterisks, modif in enumerate(re.finditer('\*', row['Peptide']), 1):
                 interval_start = i + modif.span()[0] - interval_length - asterisks
                 interval_end = interval_start + 2 * interval_length + 1
-                intervals.append(seq[interval_start: interval_end])
+                interval=seq[interval_start: interval_end]
+                if interval[interval_length]==modification_site:
+                    intervals.append(interval)
+                else:
+                    print('wrong',interval)
             start = seq[i+1:].find(row['Peptide'].replace('*',''))
             i += start + 1
     k+=1        
@@ -334,7 +338,7 @@ def peptides_table(args,sample_saving_dir,bg_fasta):
             for line in f:
                 peptides.append(line[:-1])
         Peptides=pd.DataFrame({'Peptide':peptides})
-        Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length], axis=1)
+        Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length, args.modification_site], axis=1)
         # print(background)np
         Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
         # print(Peptides)
@@ -375,10 +379,15 @@ def output(args):
                                      os.path.join(results_saving_dir, 'occurences.csv'), 
                                      acids=ACIDS_LIST)
         background_n = get_occurences(background, args.interval_length, 'background.csv')
-        expected_FASTA, chi2_results, chi2_selection = chi2.p_value(background_n, occurrences, args.interval_length,
-                                                                    args.modification_site,results_saving_dir, acids=ACIDS_LIST)
-        single, double, triple, quadruple = chi2.motifs(chi2_selection, args.interval_length, args.modification_site, background,
-                                                        intervals, results_saving_dir, acids=ACIDS_LIST)
+#        expected_FASTA, chi2_results, chi2_selection = chi2.p_value(background_n, occurrences, args.interval_length,
+#                                                                    args.modification_site,results_saving_dir, acids=ACIDS_LIST)
+        p_value=chi2.p_value(occurrences,background_n,args.interval_length,results_saving_dir)
+#        single, double, triple, quadruple = chi2.motifs(chi2_selection, args.interval_length, args.modification_site, background,
+#                                                        intervals, results_saving_dir, acids=ACIDS_LIST)
+#        single, double, triple, quadruple = chi2.motifs(p_value, args.interval_length, args.modification_site, background_n,
+#                                                occurrences, results_saving_dir, acids=ACIDS_LIST)
+        vector,table=chi2.motifs(occurrences,background_n,p_value,args,results_saving_dir)
         logging.info(msg='Program was finished successfully') 
-        return chi2_results,chi2_selection,intervals,background
+#        return chi2_results,chi2_selection,intervals,background
+        return vector,table
 

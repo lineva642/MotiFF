@@ -90,4 +90,5 @@ logging.debug(msg=u'Modified peptides dataframe is created')
 
 
 
-a,b,c,d=utils.output(args)
+#a,b,c,d=utils.output(args)
+a,b=utils.output(args)

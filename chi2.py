@@ -25,117 +25,64 @@ import logging
 import utils
 
 ##АЛГОРИТМ_chi2
-#считаем ожидаемое распределение аминокислот
-def expected_destribution(background_n,occurrences,interval_length):
 
-    all_back=0
-    for k in range(0,21):
-        all_back+=background_n[k][0]
-
-    all_exp=0
-    for k in range(0,21):
-        all_exp+=occurrences[k][0]
-
-    norm_FASTA=[]
-    for i in range(0,21):
-        a=[0]*(interval_length*2+1)
-        norm_FASTA.append(a)
-    for i in range(0,21):
-        for k in range(0,interval_length*2+1):
-            norm_FASTA[i][k]=(background_n[i][k])/all_back
-
-    expected_FASTA=[]
-    for i in range(0,21):
-        a=[0]*(interval_length*2+1)
-        expected_FASTA.append(a)
-    for i in range(0,21):
-        for k in range(0,interval_length*2+1):
-            expected_FASTA[i][k]=(norm_FASTA[i][k])*all_exp
-    logging.debug(u'Expected destrbution was counted')        
-    return expected_FASTA,all_exp
-
-
+def  chi2_calc(occurrences,norm_expected,interval_length):
+    p_value=pd.DataFrame(index=occurrences.index,columns=occurrences.columns)
+    all_occ=(occurrences[interval_length]).sum()
+    all_exp=(norm_expected[interval_length]).sum()
+    for i in occurrences.columns:
+        for j in occurrences.index:
+            chisq,p_value[i][j]=chisquare([occurrences[i][j],all_occ-occurrences[i][j]],f_exp=[norm_expected[i][j],all_exp-norm_expected[i][j]])
+    return p_value        
 # считаем p-value
-def chi2_result(occurrences_FASTA,expected_FASTA,all_exp,interval_length,results_saving_dir):
-    chi2_results=[]
-    for i in range(0,21):
-        a=[0]*(interval_length*2+1)
-        chi2_results.append(a)
-    for i in range(0,21):
-        for k in range(0,interval_length*2+1):
-            if k!=interval_length:
-                chisq,p_value=chisquare([occurrences_FASTA[i][k],all_exp-occurrences_FASTA[i][k]],f_exp=[expected_FASTA[i][k],all_exp-expected_FASTA[i][k]])
-                chi2_results[i][k]=p_value
+def p_value(occurrences,background_n,interval_length,results_saving_dir):
+    
+    #cчитаем количество интервалов в background
+    all_back=(background_n[interval_length]).sum()
+    #считаем количество интервалов в экспериментальном наборе
+    all_exp=(occurrences[interval_length]).sum()
+    #рассчитываем ожидаемую частоту встречаемости по распределению в background
+    norm_expected=(background_n/all_back)*all_exp
+    
+    p_value=chi2_calc(occurrences,norm_expected,interval_length)
+    print(p_value)
+                
     #результат нужно сохранить
-    path=os.path.join(results_saving_dir,'p_value.txt')
-    saving=open(path,'w')
-    for i in range(0,21):
-        for k in range(interval_length*2+1):
-            saving.write(str(chi2_results[i][k])+' ')
-        saving.write('\n')
-    saving.close()
-    logging.debug(msg=u'Chi2 values matrix was created')
-    return chi2_results            
+    p_value.to_csv(os.path.join(results_saving_dir, 'p_value.csv'), sep='\t')
 
+    logging.debug(msg=u'p-value matrix was created')
+    return p_value
 
-# In[107]:
-
-
-#def p_value_selection(chi2_results,occurrences_FASTA,interval_length):
-#    chi2_selection=[]
-#    for i in range(0,21):
-#        a=[0]*(2*interval_length+1)
-#        chi2_selection.append(a)
-#    for i in range(0,21):
-#        for k in range(0,2*interval_length+1):
-#            if (chi2_results[i][k]<0.05/(21*(2*interval_length+1))) and (k!=interval_length) and (occurrences_FASTA[i][k]>10):
-#                chi2_selection[i][k]=1
-#    logging.debug(u'Selection of matrix elements was successful')            
-#    return chi2_selection            
-
-def p_value_selection(chi2_results,occurrences_FASTA,interval_length):
-    chi2_selection=[]
-#    for i in range(0,21):
-#        a=[0]*(2*interval_length+1)
-#        chi2_selection.append(a)
-    for i in range(0,21):
-        for k in range(0,2*interval_length+1):
-            if (chi2_results[i][k]<0.05/(21*(2*interval_length+1))) and (k!=interval_length) and (occurrences_FASTA[i][k]>10):
-                chi2_selection.append((i,k))
-    logging.debug(u'Selection of matrix elements was successful')          
-    return chi2_selection            
-
-# In[108]:
-
-
-#напишем одну функцию для подсчета p-value
-def p_value(background_n, occurrences, interval_length, modification_site, results_saving_dir, acids=utils.ACIDS_LIST):
-    expected_FASTA, all_exp = expected_destribution(background_n,occurrences,interval_length)
-    chi2_results=chi2_result(occurrences,expected_FASTA,all_exp,interval_length,results_saving_dir)
-    chi2_selection=p_value_selection(chi2_results,occurrences,interval_length)
-#    heatmap_visualization(chi2_selection,acids,interval_length,modification_site,'Отбор по p-value',results_saving_dir,name='p_value_selection')
-    logging.info(u'Chi2 values were counted and selection with p=0.05/Bonferroni and occurrences>10 correction was performed')
-    return expected_FASTA, chi2_results, chi2_selection
-
-#функция для подсчета комлексных мотивов
-def primary_motifs(interval_length, chi2_selection, results_saving_dir, modification_site, acids=utils.ACIDS_LIST):    
+def primary_motifs(occurrences,background_n,p_value,acids,modification_site,interval_length,results_saving_dir):
+#    p_value_selected=p_value[p_value<0.05/occurrences.size]
+#    occurrences_selected=occurences[occurrences>10]
+    result=p_value[p_value<0.05/occurrences.size]*occurrences[occurrences>10]
+    print(result)
     primary_motifs_number=[]
     primary_motifs_letter=[]
-    for elem in chi2_selection:
-        i,k=elem
-        motif=np.zeros(interval_length*2+1)
-        motif[k]=i+1
-        primary_motifs_number.append(motif)                    
-        if k<interval_length:
-            motif=acids[i]+'.'*(interval_length-k-1)+modification_site.lower()
-        else:
-            motif=modification_site.lower()+'.'*(k-interval_length-1)+acids[i]
-        primary_motifs_letter.append(motif)
+    for i in result.columns:
+        for j in result.index:
+            if (math.isnan(result[i][j])):
+                continue
+            else:
+#                print((i,j),result[i][j],type(result[i][j]))
+                if i<0:
+                    n_motif=np.zeros(interval_length*2+1)
+                    n_motif[i+interval_length]=acids.index(j)+1
+                    motif=j+'.'*(-i-1)+modification_site.lower()
+                    
+                elif i>0:
+                    n_motif=np.zeros(interval_length*2+1)
+                    n_motif[i+interval_length]=acids.index(j)+1
+                    motif=modification_site.lower()+'.'*(i-1)+j
+                primary_motifs_letter.append(motif)
+                primary_motifs_number.append(n_motif)
     vector=np.array(primary_motifs_number)    
     table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter})      
     utils.saving_table(results_saving_dir,table,interval_length,'primary')
     logging.info(str(len(table['Number motif'].values))+u' primary (one acid length) motifs were identificated')
-    return vector,table
+    print(table)            
+    return vector,table         
 
 
 # In[114]:
@@ -147,21 +94,7 @@ def counter_doubles(dataset, i_1, i_2, k_1, k_2, acids=utils.ACIDS_LIST):
             count+=1
     return count
 
-#def f(a):
-#    b=set()
-#    for i in enumerate(a):
-#        b.add(i)
-#    return b 
-#def count(dataset,i_1,i_2,k_1,k_2,acids):
-#    count=0
-#    a={(k_1,acids[i_1-1]),(k_2,acids[i_2-1])}
-#    for elem in dataset:
-#        print(f(list(elem)),a.difference(f(list(elem))))
-#        if a.difference(f(list(elem)))==set():
-#            count+=1
-#    return count        
-#    print(a)
-def double_motifs(vector, intervals, background, results_saving_dir, interval_length, modification_site, acids=utils.ACIDS_LIST):
+def double_motifs(vector, occurrences, background_n, results_saving_dir, interval_length, modification_site, acids=utils.ACIDS_LIST):
     #выполняем тензорное умножение
     b = np.tensordot(vector, vector.T, axes=0)
     l=len(vector)    
@@ -350,16 +283,20 @@ def quadruple_motifs(primary_motif, triple_motifs, intervals, background, interv
 
 
 #улучшенная версия 2
-def motifs(chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir, acids=utils.ACIDS_LIST):
-    vector,single=primary_motifs(interval_length, chi2_selection, results_saving_dir, modification_site, acids=utils.ACIDS_LIST)
-    double=double_motifs(vector, intervals, background, results_saving_dir, interval_length, modification_site, acids=utils.ACIDS_LIST)
-    if double is not None:
-        triple=triple_motifs(single, double, intervals, background, interval_length, results_saving_dir, modification_site, acids=utils.ACIDS_LIST)
-        if triple is not None:
-            quadruple=quadruple_motifs(single, triple, intervals, background, interval_length, results_saving_dir, modification_site, acids=utils.ACIDS_LIST)
-        else:
-            quadruple=None
-    else:
-        triple=None   
-    return single, double, triple, quadruple
+#def motifs(chi2_selection,interval_length,modification_site,background,intervals,results_saving_dir, acids=utils.ACIDS_LIST):
+def motifs(occurrences,background_n,p_value,args,results_saving_dir):
+#    vector,single=primary_motifs(interval_length, chi2_selection, results_saving_dir, modification_site, acids=utils.ACIDS_LIST)
+#    p_value_selected=primary_motifs(occurrences,background_n,p_value)
+    vector,table=primary_motifs(occurrences,background_n,p_value,utils.ACIDS_LIST,args.modification_site,args.interval_length,results_saving_dir)
+#    double=double_motifs(vector, intervals, background, results_saving_dir, interval_length, modification_site, acids=utils.ACIDS_LIST)
+#    if double is not None:
+#        triple=triple_motifs(single, double, intervals, background, interval_length, results_saving_dir, modification_site, acids=utils.ACIDS_LIST)
+#        if triple is not None:
+#            quadruple=quadruple_motifs(single, triple, intervals, background, interval_length, results_saving_dir, modification_site, acids=utils.ACIDS_LIST)
+#        else:
+#            quadruple=None
+#    else:
+#        triple=None   
+#    return single, double, triple, quadruple
+    return vector,table
 #    return single,double
