@@ -6,7 +6,7 @@ Created on Wed Aug 12 13:37:30 2020
 
 """
 
-ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D','-']
+ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D','U','-']
 import os
 from urllib.request import urlretrieve
 import pylab
@@ -255,34 +255,7 @@ def aa_counter(col):
     return pd.Series(Counter(col))
 
 def get_occurences(intervals_list, interval_length, saving_file, acids=ACIDS_LIST):
-    #создаем матрицу для подсчета числа n и забиваем ее нулями
-    # n=[]
-    # for i in range(len(acids)):
-    #     a=[0]*(interval_length*2+1)
-    #     n.append(a)
-    # for interval in intervals:
-    #     for k in range(len(interval)):
-    #         #проверяем какая кислота из заданного набора стоит на зафиксированной позиции
-    #         for i in range(len(acids)):
-    #             #номер аминокислоты i в списке аминокислот совпадает с номером этой аминокислоты в матрице n
-    #             acid=acids[i]
-    #             #если совпадение есть,то добавляем единичку в матрицу n на соответствующую позицию
-    #             if interval[k]==acid:
-    #                 n[i][k]+=1
-    #             else:
-    #                 continue
-    # path=os.path.join(results_saving_dir,'occurrences.txt')
-    # saving=open(path,'w')
-    # for i in range(len(acids)):
-    #     for k in range(interval_length*2+1):
-    #         saving.write(str(n[i][k])+' ')
-    #     saving.write('\n')
-    # saving.close()
-    # logging.debug(msg=u'Occurrence matrix was created')                    
-    # return n
-    # occurance = pd.DataFrame(index=acids)
-    # i=((intervals_list.replace('[','')).replace("'",'')).split(']')
-    # print(i[:-1])
+
     df = pd.DataFrame([list(i) for i in intervals_list], columns=range(-interval_length, interval_length + 1))
     occ = df.apply(aa_counter, axis=0)
     print(occ)
@@ -386,8 +359,8 @@ def output(args):
 #                                                        intervals, results_saving_dir, acids=ACIDS_LIST)
 #        single, double, triple, quadruple = chi2.motifs(p_value, args.interval_length, args.modification_site, background_n,
 #                                                occurrences, results_saving_dir, acids=ACIDS_LIST)
-        vector,table=chi2.motifs(occurrences,background_n,p_value,args,results_saving_dir)
+        vector,table,double,triple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
         logging.info(msg='Program was finished successfully') 
 #        return chi2_results,chi2_selection,intervals,background
-        return vector,table
+        return vector,table,double,triple
 
