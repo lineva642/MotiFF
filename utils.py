@@ -359,8 +359,8 @@ def output(args):
 #                                                        intervals, results_saving_dir, acids=ACIDS_LIST)
 #        single, double, triple, quadruple = chi2.motifs(p_value, args.interval_length, args.modification_site, background_n,
 #                                                occurrences, results_saving_dir, acids=ACIDS_LIST)
-        vector,table,double,triple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
+        single, double, triple, quadruple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
         logging.info(msg='Program was finished successfully') 
 #        return chi2_results,chi2_selection,intervals,background
-        return vector,table,double,triple
+        return single, double, triple, quadruple
 
