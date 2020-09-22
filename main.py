@@ -32,7 +32,9 @@ parser.add_argument('--interval_length',type=int,default=6,help='Number of amino
 parser.add_argument('--modification',type=str,default='modification_1',help='Name of modification(ex.PHOSPHORYLATION)',required=False)
 parser.add_argument('--modification_site',type=str,default='S',help='Modified amino acid (ex.S,T)')
 parser.add_argument('--working_dir',type=str,default='.',help='Working dir for program (default=".")',required=False)
-parser.add_argument('--algorithm',type=str,default='chi2',help='Enter algorithm name: binom or chi2(default="binom")',required=False)
+parser.add_argument('--algorithm',type=str,default='chi2',help='Enter algorithm name: binom or chi2(default="chi2")',required=False)
+parser.add_argument('--p_value',type=float,default=0.05,help='Enter p_value(default=0.05)',required=False)
+parser.add_argument('--occurrences',type=int,default=10,help='Enter number of motif occurrences in experimental dataset (default=10)',required=False)
 parser.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity',required=False)
 args = parser.parse_args()
 

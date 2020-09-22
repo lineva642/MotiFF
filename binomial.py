@@ -26,277 +26,339 @@ import utils
 
 ##АЛГОРИТМ BINOMIAL
 
-def p_value_bi(modification_site,interval_length,background,background_n, acids=utils.ACIDS_LIST):
-    background_n_1=[]
-    for i in range(len(acids)):
-        if acids[i]==modification_site:
-            number=i
-    for i in range(len(acids)):
-        a=[0]*(interval_length*2+1)
-        background_n_1.append(a)
-    #составили матрицу вероятностей
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-            if (k==interval_length) and (i==number):
-                background_n_1[i][k]=1
-            else:    
-                background_n_1[i][k]=(background_n[i][k])/len(background)
-    logging.debug(msg=u'p for each background occurrence matrix element was counted')            
-    return background_n_1
+#def p_value_bi(modification_site,interval_length,background,background_n, acids=utils.ACIDS_LIST):
+#    background_n_1=[]
+#    for i in range(len(acids)):
+#        if acids[i]==modification_site:
+#            number=i
+#    for i in range(len(acids)):
+#        a=[0]*(interval_length*2+1)
+#        background_n_1.append(a)
+#    #составили матрицу вероятностей
+#    for i in range(len(acids)):
+#        for k in range(interval_length*2+1):
+#            if (k==interval_length) and (i==number):
+#                background_n_1[i][k]=1
+#            else:    
+#                background_n_1[i][k]=(background_n[i][k])/len(background)
+#    logging.debug(msg=u'p for each background occurrence matrix element was counted')            
+#    return background_n_1
 
-def P_matrix_bi(interval_length,n,N,background_n_1,results_saving_dir, acids=utils.ACIDS_LIST):
-    P=[]
-    path=os.path.join(results_saving_dir,'P.txt')
-    saving=open(path,'w')
-    for i in range(len(acids)):
-        a=[0]*(interval_length*2+1)
-        P.append(a)
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-#            print(i,k)
-            #формула-binom.pmf(k, n, p, loc=0)
-            result=0
-            c=n[i][k]
-            while c<=N:
-                result=result+binom.pmf(c,N,background_n_1[i][k],loc=0)
-                c+=1
-            P[i][k]=result
-            saving.write(str(result)+' ')
-        saving.write('\n')
-    saving.close()
-    logging.debug(msg=u'Binomal probability for each occurrence matrix element was counted')    
-    return P
+#def P_matrix_bi(interval_length,n,N,background_n_1,results_saving_dir, acids=utils.ACIDS_LIST):
+#    P=[]
+#    path=os.path.join(results_saving_dir,'P.txt')
+#    saving=open(path,'w')
+#    for i in range(len(acids)):
+#        a=[0]*(interval_length*2+1)
+#        P.append(a)
+#    for i in range(len(acids)):
+#        for k in range(interval_length*2+1):
+##            print(i,k)
+#            #формула-binom.pmf(k, n, p, loc=0)
+#            result=0
+#            c=n[i][k]
+#            while c<=N:
+#                result=result+binom.pmf(c,N,background_n_1[i][k],loc=0)
+#                c+=1
+#            P[i][k]=result
+#            saving.write(str(result)+' ')
+#        saving.write('\n')
+#    saving.close()
+#    logging.debug(msg=u'Binomal probability for each occurrence matrix element was counted')    
+#    return P
 
-def P_counter_bi(intervals, interval_length, modification_site, background, results_saving_dir, acids=utils.ACIDS_LIST):
+def P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=utils.ACIDS_LIST):
 #    print('Probability is being counted')
-    n = utils.n_calculator(intervals, interval_length, results_saving_dir,acids=utils.ACIDS_LIST)
-    N_calculator = lambda intervals:len(intervals)
-    N = N_calculator(intervals)
-    background_n = utils.background_n_matrix(interval_length,background,results_saving_dir, acids=utils.ACIDS_LIST)
-    background_n_1=p_value_bi(modification_site,interval_length,background,background_n, acids=utils.ACIDS_LIST)
-    P = P_matrix_bi(interval_length,n,N,background_n_1,results_saving_dir, acids=utils.ACIDS_LIST)
+#    n = utils.n_calculator(intervals, interval_length, results_saving_dir,acids=utils.ACIDS_LIST)
+#    N_calculator = lambda intervals:len(intervals)
+#    N = N_calculator(intervals)
+#    background_n = utils.background_n_matrix(interval_length,background,results_saving_dir, acids=utils.ACIDS_LIST)
+    
+    p_value = background_n/(background_n[background_n.columns[0]].sum())
+    P_binomial=pd.DataFrame().reindex_like(p_value)
+    for i in range( -args.interval_length, args.interval_length + 1):
+        for acid in acids:
+            result=0
+            c=occurrences[i][acid]
+            while c<=(occurrences[occurrences.columns[0]].sum()):
+                result=result+binom.pmf(c,occurrences[occurrences.columns[0]].sum(),p_value[i][acid],loc=0)
+                c+=1
+            P_binomial[i][acid]=result
+    utils.saving_table(results_saving_dir,P_binomial,args.interval_length,'P_binomial_matrix')            
+    print(P_binomial)        
+    
+    
+#    background_n_1=p_value_bi(modification_site,interval_length,background,background_n, acids=utils.ACIDS_LIST)
+#    P = P_matrix_bi(interval_length,n,N,background_n_1,results_saving_dir, acids=utils.ACIDS_LIST)
 #    print('Probability is being counted')
     logging.info(u'Binomial probability for each amino acid in matrix was counted')
-    return P
+    return P_binomial
 
 #рассчитаем occurrences
-def occurrences_counter_bi(intervals, interval_length, modification_site, results_saving_dir, acids=utils.ACIDS_LIST):
-    n=utils.n_calculator(intervals, interval_length, results_saving_dir, acids=utils.ACIDS_LIST)
-#    N=N_calculator(intervals)
-    path=os.path.join(results_saving_dir,'occurrences.txt')
-    saving=open(path,'w')
-    occurrences=[]
-    for i in range(len(acids)):
-        a=[0]*(interval_length*2+1)
-        occurrences.append(a)
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-            if k!=interval_length:
-                occurrences[i][k]=n[i][k]
-            saving.write(str(occurrences[i][k])+' ')
-        saving.write('\n')
-    saving.close()             
-    logging.debug(u'Occurrences for each amino acid in matrix was counted')            
-    return occurrences 
+#def occurrences_counter_bi(intervals, interval_length, modification_site, results_saving_dir, acids=utils.ACIDS_LIST):
+#    n=utils.n_calculator(intervals, interval_length, results_saving_dir, acids=utils.ACIDS_LIST)
+##    N=N_calculator(intervals)
+#    path=os.path.join(results_saving_dir,'occurrences.txt')
+#    saving=open(path,'w')
+#    occurrences=[]
+#    for i in range(len(acids)):
+#        a=[0]*(interval_length*2+1)
+#        occurrences.append(a)
+#    for i in range(len(acids)):
+#        for k in range(interval_length*2+1):
+#            if k!=interval_length:
+#                occurrences[i][k]=n[i][k]
+#            saving.write(str(occurrences[i][k])+' ')
+#        saving.write('\n')
+#    saving.close()             
+#    logging.debug(u'Occurrences for each amino acid in matrix was counted')            
+#    return occurrences 
 
 #отбор по вероятности
-def P_validation_bi(interval_length, P, acids=utils.ACIDS_LIST):
-    P1=[]
-    for i in range(len(acids)):
-        a=[0]*(interval_length*2+1)
-        P1.append(a)
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-            if P[i][k]<0.05/(21*13):
+#def P_validation_bi(interval_length, P, acids=utils.ACIDS_LIST):
+#    P1=[]
+#    for i in range(len(acids)):
+#        a=[0]*(interval_length*2+1)
+#        P1.append(a)
+#    for i in range(len(acids)):
+#        for k in range(interval_length*2+1):
+#            if P[i][k]<0.05/(21*13):
+#                continue
+#            else:
+#                P1[i][k]+=1         
+#    return P1
+#
+##отбор по встречаемости более 10
+#def occurrences_validation_bi(interval_length, occurrences, acids=utils.ACIDS_LIST):
+#    occurrences_1=[]
+#    for i in range(len(acids)):
+#        a=[0]*(interval_length*2+1)
+#        occurrences_1.append(a)
+#    for i in range(len(acids)):
+#        for k in range(interval_length*2+1):
+#            if occurrences[i][k]>=10:
+#                occurrences_1[i][k]=occurrences[i][k]
+#    return occurrences_1
+#
+##соединим валидацию по occurances и p-values
+##нужно совместить occurances_1 & P1
+#def final_validation_bi(interval_length, occurrences, P, acids=utils.ACIDS_LIST):
+#    occurrences_1=occurrences_validation_bi(interval_length, occurrences, acids=utils.ACIDS_LIST)
+#    P1=P_validation_bi(interval_length, P, acids=utils.ACIDS_LIST)
+#    for i in range(len(acids)):
+#        for k in range(interval_length*2+1):
+#            if occurrences_1[i][k]>=10:
+#                continue
+#            else:
+#                P1[i][k]=1
+#    (u'Binomial probabilities were counted and selection with p=0.05/Bonferroni correction and occurrences>10 was performed')            
+#    return P1 
+
+def letter_motif(args,indexes,acids=utils.ACIDS_LIST):
+    position=dict()
+    for elem in indexes:
+        position[elem]=acids[indexes[elem]-1]
+    position[args.interval_length]=(args.modification_site).lower()    
+
+    keys=list(position.keys())
+    keys.sort()
+    motif=position[keys[0]]+'.'*(keys[1]-keys[0]-1)
+    i=1
+    while i<len(keys)-1:
+        motif=''.join([motif,position[keys[i]],'.'*(keys[i+1]-keys[i]-1)])
+        i+=1
+    motif=''.join([motif,position[keys[len(keys)-1]]])
+    return motif  
+
+def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_saving_dir, acids=utils.ACIDS_LIST):
+    P_binomial=P_binomial[P_binomial<args.p_value/occurrences.size]
+    occurrences=occurrences[occurrences>args.occurrences]
+    result=P_binomial*occurrences
+    
+    primary_motifs_number=[]
+    primary_motifs_letter=[]
+    for i in result.columns:
+        for j in result.index:
+            if (math.isnan(result[i][j])):
                 continue
             else:
-                P1[i][k]+=1         
-    return P1
+                #n_motif-number motif, l_motif-letter motif
+                n_motif=np.zeros(args.interval_length*2+1)
+                n_motif[i+args.interval_length]=acids.index(j)+1
 
-#отбор по встречаемости более 10
-def occurrences_validation_bi(interval_length, occurrences, acids=utils.ACIDS_LIST):
-    occurrences_1=[]
-    for i in range(len(acids)):
-        a=[0]*(interval_length*2+1)
-        occurrences_1.append(a)
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-            if occurrences[i][k]>=10:
-                occurrences_1[i][k]=occurrences[i][k]
-    return occurrences_1
-
-#соединим валидацию по occurances и p-values
-#нужно совместить occurances_1 & P1
-def final_validation_bi(interval_length, occurrences, P, acids=utils.ACIDS_LIST):
-    occurrences_1=occurrences_validation_bi(interval_length, occurrences, acids=utils.ACIDS_LIST)
-    P1=P_validation_bi(interval_length, P, acids=utils.ACIDS_LIST)
-    for i in range(len(acids)):
-        for k in range(interval_length*2+1):
-            if occurrences_1[i][k]>=10:
-                continue
-            else:
-                P1[i][k]=1
-    (u'Binomial probabilities were counted and selection with p=0.05/Bonferroni correction and occurrences>10 was performed')            
-    return P1 
-
-
-def single_motifs_creator_bi(final_P, P, background, intervals, interval_length, modification_site, acids=utils.ACIDS_LIST):
-    indexes=[]
-    location=[]
-    probability=[]
-    occurrences=[]
-    backgrounds=[]
-    for i in range(len(final_P[:])):
-        for j in range(len(final_P[0])):
-            if final_P[i][j]==0 and acids[i]!=' ':
-                #расчет индексов
-                if j<interval_length:
-                    s = [acids[i], '.'*(interval_length-j-1), modification_site.lower()]
-                    index=''.join(s)
-                    #index=acids[i]+'.'*(interval_length-j-1)+modification_site.lower()
-                else:
-                    s = [modification_site.lower(), '.'*(j-interval_length-1), acids[i]]
-                    index=''.join(s)                    
-                    #index=modification_site.lower()+'.'*(j-interval_length-1)+acids[i]
-                x=sum(1 for interval in background if ((interval[j]==acids[i])))
-                u=sum(1 for interval in intervals if ((interval[j]==acids[i])))
-                indexes.append(index)    
-                location.append((i,j))
-                probability.append(P[i][j])
-                occurrences.append(u)
-                backgrounds.append(x)
-    #создадим Series
-    single_motifs=pd.DataFrame({'Location': location, 'Probability': probability , 'Occurrences' : occurrences, 'Backgrounds': backgrounds}, index=indexes)
-    logging.info(str(len(single_motifs['Occurrences'].values))+u' primary (one acid length) motifs were identificated')    
-    return single_motifs 
-
-
-def double_motifs_creator_bi(single_motifs_creator, background, intervals, P, interval_length, modification_site, results_saving_dir, acids=utils.ACIDS_LIST):
-    #для каждого претендента нужно построить двойной комплексный мотив и оценить вероятность такого мотива
-    indexes=[]
-    location=[]
-    probability=[]
-    occurrences=[]
-    backgrounds=[]
-    P_double=[]
-    P_B_double=[]
-
-        
-    #закрепили одну аминокислоту
-    for i in range(len(single_motifs_creator)):
-        #выбрали вторую аминокислоту
-        #print(i)
-        for j in range(len(single_motifs_creator)):
-            if j!=i:
-                #print(j)
-                #выбрали наш сложный мотив как две АА
-                motif_1_x,motif_1_y=single_motifs_creator['Location'].values[i]
-                motif_2_x,motif_2_y=single_motifs_creator['Location'].values[j]
-
-                #рассматриваем кислоты, которые стоят в интервале на разных позициях
-                if motif_1_y!=motif_2_y:
+                indexes={(i+args.interval_length):(acids.index(j)+1)}
+                l_motif=letter_motif(args,indexes,acids=utils.ACIDS_LIST)
                     
-                    #считаем количество интервалов с данным комплексным мотивом в background
-                    x=sum(1 for interval in background if ((interval[motif_1_y]==acids[motif_1_x]) and (interval[motif_2_y]==acids[motif_2_x])))
+                primary_motifs_letter.append(l_motif)
+                primary_motifs_number.append(n_motif)
+    vector=np.array(primary_motifs_number)    
+    table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter})
+    print(table)
+    print(vector)      
+    utils.saving_table(results_saving_dir,table,args.interval_length,'primary')
+    logging.info(str(len(table['Number motif'].values))+u' primary (one acid length) motifs were identificated')
+   
+    return vector,table 
 
-                    #считаем p-value этого комплексного мотива
-                    p=x/len(background)
 
-                    #теперь нужно подсчитать встречаемость комплексного мотива в исходном датасете
-                    n=sum(1 for interval in intervals if ((interval[motif_1_y]==acids[motif_1_x]) and (interval[motif_2_y]==acids[motif_2_x])))
-
-                    #считаем Р вероятность по биномиальной формуле для комплексного мотива
-                    P_AB=0
-                    c=n
-                    while c<=len(intervals):
-                        P_AB=P_AB+binom.pmf(n,len(intervals),p,loc=0)
-                        c+=1
-                    #print('P_AB:',P_AB)
-
-                    #нашли вероятность P(AB), теперь найдем условную вероятность
-                    P_B=P[motif_1_x][motif_1_y]
-                    #print('P_B:',P_B,motif_1_x,motif_1_y)
-                    P_A_B=P_AB/P_B
-                    #print('P_A_B:',P_A_B)
-
-                    
-                    #создадим dataframe
-                    if (motif_1_y<motif_2_y) and (motif_1_y<interval_length) and (motif_2_y>interval_length):
-                        s = [acids[motif_1_x], '.'*(interval_length-motif_1_y-1), modification_site.lower(),'.'*(motif_2_y-interval_length-1),acids[motif_2_x]]
-                        index=''.join(s)
-                        #s=motif_1_acid+'.'*(interval_length-motif_1_y-1)+modification_site.lower()+'.'*(motif_2_y-interval_length-1)+motif_2_acid
-                        indexes.append(index)
-                    elif (motif_1_y<motif_2_y) and (motif_1_y<interval_length) and (motif_2_y<interval_length):
-                        s = [acids[motif_1_x], '.'*(motif_2_y-motif_1_y-1),acids[motif_2_x],'.'*(interval_length-motif_2_y-1),modification_site.lower()]
-                        index=''.join(s)
-                        #s=motif_1_acid+'.'*(motif_2_y-motif_1_y-1)+motif_2_acid+'.'*(interval_length-motif_2_y-1)+modification_site.lower()
-                        indexes.append(index)
-                    elif (motif_1_y<motif_2_y) and (motif_1_y>interval_length):
-                        s = [modification_site.lower(), '.'*(motif_1_y-interval_length-1),acids[motif_1_x],'.'*(motif_2_y-motif_1_y-1),acids[motif_2_x]]
-                        index=''.join(s)
-                        #s=modification_site.lower()+'.'*(motif_1_y-interval_length-1)+motif_1_acid+'.'*(motif_2_y-motif_1_y-1)+motif_2_acid
-                        indexes.append(index)
-                    elif (motif_2_y<motif_1_y) and (motif_2_y<interval_length) and (motif_1_y>interval_length):
-                        s = [acids[motif_2_x], '.'*(interval_length-motif_2_y-1),modification_site.lower(),'.'*(motif_1_y-interval_length-1),acids[motif_1_x]]
-                        index=''.join(s)
-                        #s=motif_2_acid+'.'*(interval_length-motif_2_y-1)+modification_site.lower()+'.'*(motif_1_y-interval_length-1)+motif_1_acid
-                        indexes.append(index)
-                    elif (motif_2_y<motif_1_y) and (motif_2_y<interval_length) and (motif_1_y<interval_length):
-                        s = [acids[motif_2_x], '.'*(motif_1_y-motif_2_y-1),acids[motif_1_x],'.'*(interval_length-motif_1_y-1),modification_site.lower()]
-                        index=''.join(s)                        
-                        #s=motif_2_acid+'.'*(motif_1_y-motif_2_y-1)+motif_1_acid+'.'*(interval_length-motif_1_y-1)+modification_site.lower()
-                        indexes.append(index)
-                    elif (motif_2_y<motif_1_y) and (motif_2_y>interval_length):
-                        s = [modification_site.lower(), '.'*(motif_2_y-interval_length-1),acids[motif_2_x],'.'*(motif_1_y-motif_2_y-1),acids[motif_1_x]]
-                        index=''.join(s)                            
-                        #s=modification_site.lower()+'.'*(motif_2_y-interval_length-1)+motif_2_acid+'.'*(motif_1_y-motif_2_y-1)+motif_1_acid
-                        indexes.append(index)
-
-                    if motif_1_y<motif_2_y:
-                        location.append(((motif_1_x,motif_1_y),(motif_2_x,motif_2_y)))
-                    else:
-                        location.append(((motif_2_x,motif_2_y),(motif_1_x,motif_1_y)))
-                    #location.append((motif_2_x,motif_2_y))
-
-                    probability.append(P_A_B)
-
-                    occurrences.append(n)
-                    
-                    backgrounds.append(x)
-
-                    P_double.append(P_AB)
-                    
-                    P_B_double.append(P_B)
-                    
-                    
-    motifs=pd.DataFrame({'Location': location, 'Probability': probability , 'Occurrences' : occurrences, 'Backgrounds': backgrounds, 'P_AB' : P_double, 'P_B' : P_B_double}, index=indexes)
-    sorted_motifs=motifs.copy()
-    sorted_motifs.sort_values('Probability',ascending=True,inplace=True)
-    double_motifs=sorted_motifs
+def double_motifs_creator_bi(args, vector, intervals, background, P_binomial, results_saving_dir, acids=utils.ACIDS_LIST):
     
-    count=[]
-    for i in range(len(double_motifs['Probability'].values)):
-        if ((double_motifs['Probability'].values[i])<0.05/len(double_motifs['Probability'].values) and (double_motifs['Occurrences'].values[i])>10):
-            count.append(1)
-        else:
-            count.append(0)
-    double_motifs['Count']=count
+    b = np.tensordot(vector, vector.T, axes=0)
+    l=len(vector)    
+    matrix=np.zeros((l, l, args.interval_length * 2 + 1))
+    for i,ik in enumerate(b):    
+        j= 0    
+        while j<= i:        
+            matrix[i,j,:] = np.diag(b[i,:,:,j])
+            j+=1 
+
+    print('matrix',matrix)               
+    #создаем пустую табличку, в которую будем записывать результаты
+    result=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),
+                                                'Observed':np.array([]),'Expected':np.array([]),
+                                                                    'p-value':np.array([])})
+#    intervals=(idPeptides['fasta_match']).sum()
     
-    double_motifs_selection=double_motifs.where(double_motifs['Count']==1).dropna()
-    double_motifs_selection_copy=double_motifs_selection.copy()
-    del double_motifs_selection_copy['Count']
+    int_len= len(intervals)
+    back_len= len(background)
+    
+    for i in range(l):
+        j=0
+        while j<=i:
+            elem=matrix[i,j]
+            #нужны элементы матрицы с одними нулями
+            if (elem.any())==False:
+                motif=vector[i]+vector[j]
+                print(motif)
+            j+=1    
+    return result
     
     
-#    print('double_motifs',double_motifs_selection_copy)
-    
-    if probability==[]:
-        double_motifs_selection_copy=None
-    
-#     if double_motifs_selection_copy is not None:
-#         volcano_plot_for_motifs(double_motifs_selection_copy,path_results,name='double_motifs')    
-        
-    logging.info(str(len(double_motifs_selection_copy['Occurrences'].values))+u' double (two acid length) motifs were identificated')
-    return double_motifs_selection_copy
+#    #для каждого претендента нужно построить двойной комплексный мотив и оценить вероятность такого мотива
+#    indexes=[]
+#    location=[]
+#    probability=[]
+#    occurrences=[]
+#    backgrounds=[]
+#    P_double=[]
+#    P_B_double=[]
+#
+#        
+#    #закрепили одну аминокислоту
+#    for i in range(len(single_motifs_creator)):
+#        #выбрали вторую аминокислоту
+#        #print(i)
+#        for j in range(len(single_motifs_creator)):
+#            if j!=i:
+#                #print(j)
+#                #выбрали наш сложный мотив как две АА
+#                motif_1_x,motif_1_y=single_motifs_creator['Location'].values[i]
+#                motif_2_x,motif_2_y=single_motifs_creator['Location'].values[j]
+#
+#                #рассматриваем кислоты, которые стоят в интервале на разных позициях
+#                if motif_1_y!=motif_2_y:
+#                    
+#                    #считаем количество интервалов с данным комплексным мотивом в background
+#                    x=sum(1 for interval in background if ((interval[motif_1_y]==acids[motif_1_x]) and (interval[motif_2_y]==acids[motif_2_x])))
+#
+#                    #считаем p-value этого комплексного мотива
+#                    p=x/len(background)
+#
+#                    #теперь нужно подсчитать встречаемость комплексного мотива в исходном датасете
+#                    n=sum(1 for interval in intervals if ((interval[motif_1_y]==acids[motif_1_x]) and (interval[motif_2_y]==acids[motif_2_x])))
+#
+#                    #считаем Р вероятность по биномиальной формуле для комплексного мотива
+#                    P_AB=0
+#                    c=n
+#                    while c<=len(intervals):
+#                        P_AB=P_AB+binom.pmf(n,len(intervals),p,loc=0)
+#                        c+=1
+#                    #print('P_AB:',P_AB)
+#
+#                    #нашли вероятность P(AB), теперь найдем условную вероятность
+#                    P_B=P[motif_1_x][motif_1_y]
+#                    #print('P_B:',P_B,motif_1_x,motif_1_y)
+#                    P_A_B=P_AB/P_B
+#                    #print('P_A_B:',P_A_B)
+#
+#                    
+#                    #создадим dataframe
+#                    if (motif_1_y<motif_2_y) and (motif_1_y<interval_length) and (motif_2_y>interval_length):
+#                        s = [acids[motif_1_x], '.'*(interval_length-motif_1_y-1), modification_site.lower(),'.'*(motif_2_y-interval_length-1),acids[motif_2_x]]
+#                        index=''.join(s)
+#                        #s=motif_1_acid+'.'*(interval_length-motif_1_y-1)+modification_site.lower()+'.'*(motif_2_y-interval_length-1)+motif_2_acid
+#                        indexes.append(index)
+#                    elif (motif_1_y<motif_2_y) and (motif_1_y<interval_length) and (motif_2_y<interval_length):
+#                        s = [acids[motif_1_x], '.'*(motif_2_y-motif_1_y-1),acids[motif_2_x],'.'*(interval_length-motif_2_y-1),modification_site.lower()]
+#                        index=''.join(s)
+#                        #s=motif_1_acid+'.'*(motif_2_y-motif_1_y-1)+motif_2_acid+'.'*(interval_length-motif_2_y-1)+modification_site.lower()
+#                        indexes.append(index)
+#                    elif (motif_1_y<motif_2_y) and (motif_1_y>interval_length):
+#                        s = [modification_site.lower(), '.'*(motif_1_y-interval_length-1),acids[motif_1_x],'.'*(motif_2_y-motif_1_y-1),acids[motif_2_x]]
+#                        index=''.join(s)
+#                        #s=modification_site.lower()+'.'*(motif_1_y-interval_length-1)+motif_1_acid+'.'*(motif_2_y-motif_1_y-1)+motif_2_acid
+#                        indexes.append(index)
+#                    elif (motif_2_y<motif_1_y) and (motif_2_y<interval_length) and (motif_1_y>interval_length):
+#                        s = [acids[motif_2_x], '.'*(interval_length-motif_2_y-1),modification_site.lower(),'.'*(motif_1_y-interval_length-1),acids[motif_1_x]]
+#                        index=''.join(s)
+#                        #s=motif_2_acid+'.'*(interval_length-motif_2_y-1)+modification_site.lower()+'.'*(motif_1_y-interval_length-1)+motif_1_acid
+#                        indexes.append(index)
+#                    elif (motif_2_y<motif_1_y) and (motif_2_y<interval_length) and (motif_1_y<interval_length):
+#                        s = [acids[motif_2_x], '.'*(motif_1_y-motif_2_y-1),acids[motif_1_x],'.'*(interval_length-motif_1_y-1),modification_site.lower()]
+#                        index=''.join(s)                        
+#                        #s=motif_2_acid+'.'*(motif_1_y-motif_2_y-1)+motif_1_acid+'.'*(interval_length-motif_1_y-1)+modification_site.lower()
+#                        indexes.append(index)
+#                    elif (motif_2_y<motif_1_y) and (motif_2_y>interval_length):
+#                        s = [modification_site.lower(), '.'*(motif_2_y-interval_length-1),acids[motif_2_x],'.'*(motif_1_y-motif_2_y-1),acids[motif_1_x]]
+#                        index=''.join(s)                            
+#                        #s=modification_site.lower()+'.'*(motif_2_y-interval_length-1)+motif_2_acid+'.'*(motif_1_y-motif_2_y-1)+motif_1_acid
+#                        indexes.append(index)
+#
+#                    if motif_1_y<motif_2_y:
+#                        location.append(((motif_1_x,motif_1_y),(motif_2_x,motif_2_y)))
+#                    else:
+#                        location.append(((motif_2_x,motif_2_y),(motif_1_x,motif_1_y)))
+#                    #location.append((motif_2_x,motif_2_y))
+#
+#                    probability.append(P_A_B)
+#
+#                    occurrences.append(n)
+#                    
+#                    backgrounds.append(x)
+#
+#                    P_double.append(P_AB)
+#                    
+#                    P_B_double.append(P_B)
+#                    
+#                    
+#    motifs=pd.DataFrame({'Location': location, 'Probability': probability , 'Occurrences' : occurrences, 'Backgrounds': backgrounds, 'P_AB' : P_double, 'P_B' : P_B_double}, index=indexes)
+#    sorted_motifs=motifs.copy()
+#    sorted_motifs.sort_values('Probability',ascending=True,inplace=True)
+#    double_motifs=sorted_motifs
+#    
+#    count=[]
+#    for i in range(len(double_motifs['Probability'].values)):
+#        if ((double_motifs['Probability'].values[i])<0.05/len(double_motifs['Probability'].values) and (double_motifs['Occurrences'].values[i])>10):
+#            count.append(1)
+#        else:
+#            count.append(0)
+#    double_motifs['Count']=count
+#    
+#    double_motifs_selection=double_motifs.where(double_motifs['Count']==1).dropna()
+#    double_motifs_selection_copy=double_motifs_selection.copy()
+#    del double_motifs_selection_copy['Count']
+#    
+#    
+##    print('double_motifs',double_motifs_selection_copy)
+#    
+#    if probability==[]:
+#        double_motifs_selection_copy=None
+#    
+##     if double_motifs_selection_copy is not None:
+##         volcano_plot_for_motifs(double_motifs_selection_copy,path_results,name='double_motifs')    
+#        
+#    logging.info(str(len(double_motifs_selection_copy['Occurrences'].values))+u' double (two acid length) motifs were identificated')
+#    return double_motifs_selection_copy
 
 def triple_motifs_creator_bi(double_motifs, single_motifs, background, intervals, modification_site, interval_length, results_saving_dir, acids=utils.ACIDS_LIST):
 
@@ -535,17 +597,19 @@ def quadruple_motifs_creator_bi(triple_motifs, single_motifs, background, interv
     logging.info(str(len(fourth_motifs_selection_copy['Occurrences'].values))+u' quadruple (four acid length) motifs were identificated')    
     return fourth_motifs_selection_copy
 
-def motifs_bi(P_final,interval_length,modification_site,background,intervals,P,results_saving_dir, acids=utils.ACIDS_LIST):
+def motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_saving_dir, acids=utils.ACIDS_LIST):
     #primary=primary_motifs_creator(acids,P_final,interval_length,modification_site)
-    single=single_motifs_creator_bi(P_final,P,background,intervals,interval_length,modification_site, acids=utils.ACIDS_LIST)
-    utils.saving_table(results_saving_dir,single,interval_length,'single')
-    double=double_motifs_creator_bi(single,background,intervals,P,interval_length,modification_site,results_saving_dir, acids=utils.ACIDS_LIST)
-    if double is not None:
-        utils.saving_table(results_saving_dir,double,interval_length,'double')
-        triple=triple_motifs_creator_bi(double,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
-    if triple is not None:
-        utils.saving_table(results_saving_dir,triple,interval_length,'triple')
-        quadruple=quadruple_motifs_creator_bi(triple,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
-    if quadruple is not None:
-        utils.saving_table(results_saving_dir,quadruple,interval_length,'quadruple')
-    return single,double,triple,quadruple
+    intervals=(idPeptides['fasta_match']).sum()
+    vector,single=single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_saving_dir, acids=utils.ACIDS_LIST)
+#    utils.saving_table(results_saving_dir,single,interval_length,'single')
+    double=double_motifs_creator_bi(args, vector, idPeptides, background, P_binomial, results_saving_dir, acids=utils.ACIDS_LIST)
+#    if double is not None:
+#        utils.saving_table(results_saving_dir,double,interval_length,'double')
+#        triple=triple_motifs_creator_bi(double,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
+#    if triple is not None:
+#        utils.saving_table(results_saving_dir,triple,interval_length,'triple')
+#        quadruple=quadruple_motifs_creator_bi(triple,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
+#    if quadruple is not None:
+#        utils.saving_table(results_saving_dir,quadruple,interval_length,'quadruple')
+#    return single,double,triple,quadruple
+    return vector,single,double
