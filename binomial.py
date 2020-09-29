@@ -177,6 +177,7 @@ def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_s
     
     primary_motifs_number=[]
     primary_motifs_letter=[]
+    primary_motifs_probability=[]
     for i in result.columns:
         for j in result.index:
             if (math.isnan(result[i][j])):
@@ -191,8 +192,9 @@ def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_s
                     
                 primary_motifs_letter.append(l_motif)
                 primary_motifs_number.append(n_motif)
+                primary_motifs_probability.append(P_binomial[i][j])
     vector=np.array(primary_motifs_number)    
-    table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter})
+    table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter,'Probability':primary_motifs_probability})
     print(table)
     print(vector)      
     utils.saving_table(results_saving_dir,table,args.interval_length,'primary')
@@ -212,6 +214,7 @@ def double_motifs_creator_bi(args, vector, intervals, background, P_binomial, re
             matrix[i,j,:] = np.diag(b[i,:,:,j])
             j+=1 
 
+            
     print('matrix',matrix)               
     #создаем пустую табличку, в которую будем записывать результаты
     result=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),
