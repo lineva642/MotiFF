@@ -171,7 +171,7 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
                 
 
     print(table)
-    return matrix
+    return table
  
 def triple_motifs_creator_bi(args, double_motifs):
     
