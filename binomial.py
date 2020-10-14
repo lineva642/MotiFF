@@ -37,22 +37,6 @@ def P_counter_bi(occurrences, background_n, args, results_saving_dir):
     return binom_prob
 
 
-# def letter_motif(args,indexes,acids=utils.ACIDS_LIST):
-#     position=dict()
-#     for elem in indexes:
-#         position[elem]=acids[indexes[elem]-1]
-#     position[args.interval_length]=(args.modification_site).lower()    
-
-#     keys=list(position.keys())
-#     keys.sort()
-#     motif=position[keys[0]]+'.'*(keys[1]-keys[0]-1)
-#     i=1
-#     while i<len(keys)-1:
-#         motif=''.join([motif,position[keys[i]],'.'*(keys[i+1]-keys[i]-1)])
-#         i+=1
-#     motif=''.join([motif,position[keys[len(keys)-1]]])
-#     return motif
-
 def get_letter_motif(args, acid_location, acid_number, acids=utils.ACIDS_LIST):
     motif = []
     position=dict()
@@ -69,6 +53,7 @@ def get_letter_motif(args, acid_location, acid_number, acids=utils.ACIDS_LIST):
         i+=1
     motif=''.join([motif,position[keys[len(keys)-1]]])
     return motif       
+
 
 def single_motifs_creator_bi(binom_prob, occurrences, intervals, args, results_saving_dir, acids=utils.ACIDS_LIST):
     binom_prob = binom_prob[binom_prob < args.p_value / occurrences.size] # check this
@@ -106,6 +91,7 @@ def single_motifs_creator_bi(binom_prob, occurrences, intervals, args, results_s
     print('vector', vector)
     return vector,table 
 
+
 def counter(args, table, acid_location, acid_number, acids = utils.ACIDS_LIST):
     for i, ik in zip(acid_location, acid_number):
         table = table[(table[i-args.interval_length]==acids[ik-1])]
@@ -130,10 +116,7 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
     back_len = len(back_table)
     int_len = len(int_table)
 
-    
-    
     for i in range(l):
-#        j=0
         for j in range(l):    
 
             elem=matrix[i,j]
@@ -167,13 +150,11 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
                                             ignore_index=True)
                 
 
-    # print(table)
     return table
- 
-def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background):
+
     
-#    table=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),'Observed': np.array([]),
-#                                                'P_ABC':np.array([]),'P_A|BC':np.array([])})
+def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background):
+
     result_table=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]), 'Observed': np.array([]),
                                                 'P_ABC':np.array([]),'P_A|BC':np.array([])}) 
     
@@ -201,8 +182,6 @@ def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background)
     back_table = pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1))
     back_len = len(back_table)
     int_len = len(int_table)
-
-    
     
     for i in range(len(double_vector)):
 #        j=0
@@ -236,9 +215,8 @@ def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background)
                 result_table=result_table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_ABC,
                                         'P_ABC':result,'P_A|BC':P_if},
                                             ignore_index=True)
-    # print('!!! result',result_table)            
-        
     return result_table   
+
 
 def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, background):
 
@@ -270,8 +248,6 @@ def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, backgrou
     back_len = len(back_table)
     int_len = len(int_table)
 
-    
-    
     for i in range(len(triple_vector)):
 #        j=0
         for j in range(len(vector)):    
@@ -305,8 +281,7 @@ def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, backgrou
                 result_table=result_table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_ABCD,
                                         'P_ABCD':result,'P_A|BCD':P_if},
                                             ignore_index=True)
-    # print('!!!! result',result_table)            
-        
+
     return triple_vector    
     
 

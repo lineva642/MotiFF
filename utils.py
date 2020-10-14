@@ -114,24 +114,11 @@ def saving_table(results_saving_dir, result, interval_length, name):
  
     
 def peptides_table(args, sample_saving_dir, bg_fasta):
-    # if os.path.exists(os.path.join(sample_saving_dir, 'peptide_identification.csv')):
-        
-    #     idPeptides = pd.read_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), sep=',', usecols=[1,2])
-    #     for i in range(len(idPeptides['fasta_match'].index)):
-    #         idPeptides['fasta_match'][i]=(((idPeptides['fasta_match'][i].replace('[','')).replace(']','')).replace("'",'')).split(',')
-    # else:    
-        # peptides = []
-        # with open(args.dataset) as f:
-        #     for line in f:
-        #         peptides.append(line[:-1])    
-        # Peptides = pd.DataFrame({'Peptide':peptides})
     Peptides = pd.read_table(args.dataset, names=['Peptide'])
     logging.info('Peptide table contains %d peptides', Peptides.shape[0])
     logging.debug('Initial Peptides df:\n%s', Peptides.head())
     Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length, args.modification_site], axis=1)
-    # print(background)np
     Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
-    # print(Peptides)
     idPeptides = Peptides[Peptides['unique'] == True]
     logging.info('Found %d unique peptides motifs', len(idPeptides))
     idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
@@ -159,16 +146,9 @@ def output(args):
         logging.info(msg='Program was finished successfully') 
         return single,double,triple,quadruple
     else:
-        
-#        occurrences = get_occurences( (idPeptides['fasta_match']).sum(), args.interval_length,
-#                                     os.path.join(results_saving_dir, 'occurences.csv'), 
-#                                     acids=ACIDS_LIST)
-#        background_n = get_occurences(background, args.interval_length, 'background.csv')
-
         p_value=chi2.p_value(occurrences,background_n,args.interval_length,results_saving_dir)
 
         single, double, triple, quadruple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
         logging.info(msg='Program was finished successfully') 
-#        return chi2_results,chi2_selection,intervals,background
         return single, double, triple, quadruple
 
