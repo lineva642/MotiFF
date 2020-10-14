@@ -26,6 +26,7 @@ import utils
 
 ##АЛГОРИТМ BINOMIAL
 
+
 def P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=utils.ACIDS_LIST):
 
     
@@ -44,13 +45,30 @@ def P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=util
     
     
     logging.info(u'Binomial probability for each amino acid in matrix was counted')
+    
     return P_binomial
 
 
-def letter_motif(args,indexes,acids=utils.ACIDS_LIST):
+# def letter_motif(args,indexes,acids=utils.ACIDS_LIST):
+#     position=dict()
+#     for elem in indexes:
+#         position[elem]=acids[indexes[elem]-1]
+#     position[args.interval_length]=(args.modification_site).lower()    
+
+#     keys=list(position.keys())
+#     keys.sort()
+#     motif=position[keys[0]]+'.'*(keys[1]-keys[0]-1)
+#     i=1
+#     while i<len(keys)-1:
+#         motif=''.join([motif,position[keys[i]],'.'*(keys[i+1]-keys[i]-1)])
+#         i+=1
+#     motif=''.join([motif,position[keys[len(keys)-1]]])
+#     return motif
+
+def letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST):
     position=dict()
-    for elem in indexes:
-        position[elem]=acids[indexes[elem]-1]
+    for i,ik in zip(acid_location, acid_number):
+        position[i]=acids[ik-1]
     position[args.interval_length]=(args.modification_site).lower()    
 
     keys=list(position.keys())
@@ -61,10 +79,11 @@ def letter_motif(args,indexes,acids=utils.ACIDS_LIST):
         motif=''.join([motif,position[keys[i]],'.'*(keys[i+1]-keys[i]-1)])
         i+=1
     motif=''.join([motif,position[keys[len(keys)-1]]])
-    return motif  
+    return motif       
 
 def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_saving_dir, acids=utils.ACIDS_LIST):
     P_binomial=P_binomial[P_binomial<args.p_value/occurrences.size]
+    print('occurrences.size',occurrences.size)
     occurrences=occurrences[occurrences>args.occurrences]
     result=P_binomial*occurrences
     
@@ -79,17 +98,19 @@ def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_s
                 #n_motif-number motif, l_motif-letter motif
                 n_motif=np.zeros(args.interval_length*2+1)
                 n_motif[i+args.interval_length]=acids.index(j)+1
+                
+                acid_location, acid_number = [i+args.interval_length], [acids.index(j) + 1] 
 
-                indexes={(i+args.interval_length):(acids.index(j)+1)}
-                l_motif=letter_motif(args,indexes,acids=utils.ACIDS_LIST)
+                # indexes={(i+args.interval_length):(acids.index(j)+1)}
+                l_motif=letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST)
                     
                 primary_motifs_letter.append(l_motif)
                 primary_motifs_number.append(n_motif)
                 primary_motifs_probability.append(P_binomial[i][j])
     vector=np.array(primary_motifs_number)    
     table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter,'Probability':primary_motifs_probability})
-    print(table)
-    print(vector)      
+    # print(table)
+    # print(vector)      
     utils.saving_table(results_saving_dir,table,args.interval_length,'primary')
     logging.info(str(len(table['Number motif'].values))+u' primary (one acid length) motifs were identificated')
    
@@ -101,27 +122,12 @@ def counter(args, table, acid_location, acid_number, acids = utils.ACIDS_LIST):
     count = len(table)
     return count    
 
-def l_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST):
-    position=dict()
-    for i,ik in zip(acid_location, acid_number):
-        position[i]=acids[ik-1]
-    position[args.interval_length]=(args.modification_site).lower()    
-
-    keys=list(position.keys())
-    keys.sort()
-    motif=position[keys[0]]+'.'*(keys[1]-keys[0]-1)
-    i=1
-    while i<len(keys)-1:
-        motif=''.join([motif,position[keys[i]],'.'*(keys[i+1]-keys[i]-1)])
-        i+=1
-    motif=''.join([motif,position[keys[len(keys)-1]]])
-    return motif
 
 def double_motifs_creator_bi(args, vector, single, intervals, background, acids = utils.ACIDS_LIST):
     
     table=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]), 'Observed': np.array([]),
                                                 'P_AB':np.array([]),'P_A|B':np.array([])}) 
-    
+    #составляем всевозможные пары двойных мотивов из полученных первичных, нулевые элементы-нужные нам мотивы
     b = np.tensordot(vector, vector.T, axes=0)
     l=len(vector)    
     matrix=np.zeros((l, l, args.interval_length * 2 + 1))
@@ -134,9 +140,8 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
     back_len = len(back_table)
     int_len = len(int_table)
 
-    P_if = np.zeros((l, l, args.interval_length * 2 + 1))
     
-    p_value = np.zeros((l, l, args.interval_length * 2 + 1))
+    
     for i in range(l):
 #        j=0
         for j in range(l):    
@@ -144,11 +149,13 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
             elem=matrix[i,j]
         #нужны элементы матрицы с одними нулями
             if (elem.any())==False:
-
+                # print('double_motif',motif)
                 motif = vector[i] + vector[j]
+                print('double_motif',motif)
+                #хотим восстановить буквенный вид мотива
                 acid_location = [elem for elem in np.nonzero(motif)[0]]
                 acid_number = [int(motif[elem]) for elem in np.nonzero(motif)[0]]
-                motif_l = l_motif(args, acid_location, acid_number,acids=utils.ACIDS_LIST)
+                motif_l = letter_motif(args, acid_location, acid_number,acids=utils.ACIDS_LIST)
             
                 
 
@@ -163,283 +170,180 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
                 
                 
                     
-                P_if[i][j]=result/probability_j
+                P_if=result/probability_j
                 
                 table=table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_AB,
-                                        'P_AB':result,'P_A|B':P_if[i][j]},
+                                        'P_AB':result,'P_A|B':P_if},
                                             ignore_index=True)
                 
 
     print(table)
     return table
  
-def triple_motifs_creator_bi(args, double_motifs):
+def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background):
     
 #    table=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),'Observed': np.array([]),
 #                                                'P_ABC':np.array([]),'P_A|BC':np.array([])})
-    print(double_motifs)
-    print(double_motifs['Observed'])
+    result_table=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]), 'Observed': np.array([]),
+                                                'P_ABC':np.array([]),'P_A|BC':np.array([])}) 
+    
     b=len(double_motifs['Observed'].values)
-    table=(double_motifs.loc[double_motifs['p-value']<args.p_value/b][double_motifs['Observed']>=args.occurrences]).reset_index()
+    table=(double_motifs.loc[double_motifs['P_A|B']<args.p_value/b][double_motifs['Observed']>=args.occurrences]).reset_index()
     del table['index']
     
-    vector=np.zeros((len(table['Number motif'].values),args.interval_length*2+1))
+    print('!!!',table)
+
+    
+    double_vector=np.zeros((len(table['Number motif'].values),args.interval_length*2+1))
     for i,ik in enumerate(table['Number motif'].values):
-        vector[i,:]=table['Number motif'].values[i]
-    print(vector)
-    return vector                
-#def triple_motifs_creator_bi(double_motifs, single_motifs, background, intervals, modification_site, interval_length, results_saving_dir, acids=utils.ACIDS_LIST):
-#
-#    indexes=[]
-#    location=[]
-#    probability=[]
-#    occurrences=[]
-#    backgrounds=[]
-#    P_triple=[]
-#    P_BC_triple=[]
-#    #зафиксировали двубуквенную часть
-#    for k in range(len(double_motifs['Location'].values)):
-#        elem=double_motifs['Location'].values[k]
-#        double_motif_1,double_motif_2=elem
-#        double_motif_1_x,double_motif_1_y=double_motif_1
-#        double_motif_2_x,double_motif_2_y=double_motif_2
-#        
-#        #теперь хотим добавлять однобуквенную 
-#        #double_motif_AA=double_motifs['Location'].index[k]
-#        for i in range(len(single_motifs['Location'].values)):
-#            third_x,third_y=single_motifs['Location'].values[i]
-#            #third_AA=acids[third_x]
-#            #порверяем, что выбранная кислота не совпадает с предыдущими и нет накладок
-#            if (third_y!=double_motif_1_y) and (third_y!=double_motif_2_y):
-#                
-#                    #считаем количество интервалов с тройным мотивом в background
-#                    x=sum(1 for interval in background if ((interval[double_motif_1_y]==acids[double_motif_1_x]) 
-#                                                           and (interval[double_motif_2_y]==acids[double_motif_2_x]) 
-#                                                           and (interval[third_y]==acids[third_x])))
-#
-#                    #считаем p-value этого комплексного мотива
-#                    p=x/len(background)
-#
-#                    #теперь нужно подсчитать встречаемость комплексного мотива в исходном датасете
-#                    n=sum(1 for interval in intervals if ((interval[double_motif_1_y]==acids[double_motif_1_x]) 
-#                                                           and (interval[double_motif_2_y]==acids[double_motif_2_x]) 
-#                                                           and (interval[third_y]==acids[third_x])))
-#
-#                    #считаем Р вероятность по биномиальной формуле для тройного мотива
-#                    P_ABC=0
-#                    c=n
-#                    while c<=len(intervals):
-#                        P_ABC=P_ABC+binom.pmf(n,len(intervals),p,loc=0)
-#                        c+=1
-#                    #print('P_AB:',P_AB)
-#
-#                    #нашли вероятность P(ABC), теперь найдем условную вероятность
-#                    P_BC=double_motifs['P_AB'].values[k]      
-#                    #print('P_B:',P_B,motif_1_x,motif_1_y)
-#                    P_A_BC=P_ABC/P_BC
-#                    #print('P_A_B:',P_A_B)
-#                
-#                    #теперь разбираемся с названием мотива
-#                    names=dict()
-#                    names[double_motif_1_y]=acids[double_motif_1_x]
-##                    print('names dict',double_motif_1_y,acids[double_motif_1_x])
-#                    names[double_motif_2_y]=acids[double_motif_2_x]
-##                    print('names dict',double_motif_2_y,acids[double_motif_2_x])
-#                    names[third_y]=acids[third_x]
-##                    print('names',third_y,acids[third_x])
-#                    names[interval_length]=modification_site.lower()
-#                    list_names=list(names.keys())
-##                    print('list names 0',list_names)
-#                    list_names.sort()
-##                    print('list names',list_names)
-#                    
-#                    name=[names[list_names[0]],'.'*(list_names[1]-list_names[0]-1),names[list_names[1]],
-#                          '.'*(list_names[2]-list_names[1]-1),names[list_names[2]],'.'*(list_names[3]-list_names[2]-1),
-#                          names[list_names[3]]]
-#                    motif=''.join(name)
-#                          
-#                    loc=((acids.index(names[list_names[0]].upper()),list_names[0]), (acids.index(names[list_names[1]].upper()),list_names[1]),
-#                          (acids.index(names[list_names[2]].upper()),list_names[2]),(acids.index(names[list_names[3]].upper()),list_names[3]))
-#                          
-#                    probability.append(P_A_BC)
-#
-#                    occurrences.append(n)
-#                    
-#                    backgrounds.append(x)
-#
-#                    P_triple.append(P_ABC)
-#                    
-#                    P_BC_triple.append(P_BC)
-#                          
-#                    location.append(loc)
-#                          
-#                    indexes.append(motif)      
-#                    
-#                    
-#    motifs=pd.DataFrame({'Location': location, 'Probability': probability , 'Occurrences' : occurrences, 'Backgrounds':backgrounds, 'P_ABC' : P_triple, 'P_BC' : P_BC_triple}, index=indexes)
-#    sorted_motifs=motifs.copy()
-#    sorted_motifs.sort_values('Probability',ascending=True,inplace=True)
-#    triple_motifs=sorted_motifs
-#    
-#    count=[]
-#    for i in range(len(triple_motifs['Probability'].values)):
-#        if ((triple_motifs['Probability'].values[i])<0.05/len(triple_motifs['Probability'].values) and (triple_motifs['Occurrences'].values[i])>10):
-#            count.append(1)
-#        else:
-#            count.append(0)
-#    triple_motifs['Count']=count
-#    
-#    triple_motifs_selection=triple_motifs.where(triple_motifs['Count']==1).dropna()
-#    triple_motifs_selection_copy=triple_motifs_selection.copy()
-#    del triple_motifs_selection_copy['Count']
-#       
-#    if probability==[]:
-#        triple_motifs_selection_copy=None
-#    
-##     if triple_motifs_selection_copy is not None:
-## #         volcano_plot_for_motifs(triple_motifs_selection_copy,path_results,name='triple_motifs')    
-#    logging.info(str(len(triple_motifs_selection_copy['Occurrences'].values))+u' triple (three acid length) motifs were identificated')    
-#    return triple_motifs_selection_copy
+        double_vector[i,:]=table['Number motif'].values[i]
+    print('!!!',double_vector)
+    
+    b=np.tensordot(double_vector,vector.T,axes=0)
+    matrix=np.zeros((len(double_vector),len(vector),args.interval_length*2+1))
 
-def quadruple_motifs_creator_bi(triple_motifs, single_motifs, background, intervals, modification_site, interval_length, results_saving_dir, acids=utils.ACIDS_LIST):
+    for i,ik in enumerate(b):
+        for j,jk in enumerate(b[0][0][0]):
+            matrix[i,j,:]=np.diag(b[i,:,:,j])
+    print('!!!',matrix)
 
-    indexes=[]
-    location=[]
-    probability=[]
-    occurrences=[]
-    backgrounds=[]
-    P_triple=[]
-    P_BCD_triple=[]
-    #зафиксировали трехбуквенную часть
-    for k in range(len(triple_motifs['Location'].values)):
-        elem=triple_motifs['Location'].values[k]
-        triple_motif_1,triple_motif_2,triple_motif_3,triple_motif_4=elem
-        triple_motif_1_x,triple_motif_1_y=triple_motif_1
-        triple_motif_2_x,triple_motif_2_y=triple_motif_2
-        triple_motif_3_x,triple_motif_3_y=triple_motif_3
-        triple_motif_4_x,triple_motif_4_y=triple_motif_4
+    int_table = pd.DataFrame([list(i) for i in intervals], columns=range(-args.interval_length, args.interval_length + 1))
+    back_table = pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1))
+    back_len = len(back_table)
+    int_len = len(int_table)
+
+    
+    
+    for i in range(len(double_vector)):
+#        j=0
+        for j in range(len(vector)):    
+
+            elem=matrix[i,j]
+        #нужны элементы матрицы с одними нулями
+            if (elem.any())==False:
+
+                motif = double_vector[i] + vector[j]
+                #хотим восстановить буквенный вид мотива
+                acid_location = [elem for elem in np.nonzero(motif)[0]]
+                acid_number = [int(motif[elem]) for elem in np.nonzero(motif)[0]]
+                motif_l = letter_motif(args, acid_location, acid_number,acids=utils.ACIDS_LIST)
+            
+                
+
+                n_ABC = counter(args, back_table, acid_location, acid_number, acids = utils.ACIDS_LIST)
+                p_value = n_ABC/back_len
+                c = n_ABC
+                result = 0
+                while c<=int_len:
+                    result=result+binom.pmf(c,int_len,p_value,loc=0)
+                    c+=1
+                probability_i = table['P_AB'][i]
+                
+                
+                    
+                P_if=result/probability_i
+                
+                result_table=result_table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_ABC,
+                                        'P_ABC':result,'P_A|BC':P_if},
+                                            ignore_index=True)
+    print('!!! result',result_table)            
         
-        #теперь хотим добавлять однобуквенную 
-        #double_motif_AA=double_motifs['Location'].index[k]
-        for i in range(len(single_motifs['Location'].values)):
-            fourth_x,fourth_y=single_motifs['Location'].values[i]
-            #third_AA=acids[third_x]
-            #порверяем, что выбранная кислота не совпадает с предыдущими и нет накладок
-            if (fourth_y!=triple_motif_1_y) and (fourth_y!=triple_motif_2_y) and (fourth_y!=triple_motif_3_y) and (fourth_y!=triple_motif_4_y):
+    return result_table   
+
+def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, background):
+
+    result_table=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]), 'Observed': np.array([]),
+                                                'P_ABCD':np.array([]),'P_A|BCD':np.array([])}) 
+    
+    b=len(triple_motifs['Observed'].values)
+    table=(triple_motifs.loc[triple_motifs['P_A|BC']<args.p_value/b][triple_motifs['Observed']>=args.occurrences]).reset_index()
+    del table['index']
+    
+    print('!!!!',table)
+    
+    
+    triple_vector=np.zeros((len(table['Number motif'].values),args.interval_length*2+1))
+    for i,ik in enumerate(table['Number motif'].values):
+        triple_vector[i,:]=table['Number motif'].values[i]
+    print('!!!!',triple_vector)
+    
+    b=np.tensordot(triple_vector,vector.T,axes=0)
+    matrix=np.zeros((len(triple_vector),len(vector),args.interval_length*2+1))
+
+    for i,ik in enumerate(b):
+        for j,jk in enumerate(b[0][0][0]):
+            matrix[i,j,:]=np.diag(b[i,:,:,j])
+    print('!!!!',matrix)
+
+    int_table = pd.DataFrame([list(i) for i in intervals], columns=range(-args.interval_length, args.interval_length + 1))
+    back_table = pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1))
+    back_len = len(back_table)
+    int_len = len(int_table)
+
+    
+    
+    for i in range(len(triple_vector)):
+#        j=0
+        for j in range(len(vector)):    
+
+            elem=matrix[i,j]
+        #нужны элементы матрицы с одними нулями
+            if (elem.any())==False:
+                # print('quadruple_motif',motif)
+                motif = triple_vector[i] + vector[j]
+                print('quadruple_motif',motif)
+                #хотим восстановить буквенный вид мотива
+                acid_location = [elem for elem in np.nonzero(motif)[0]]
+                acid_number = [int(motif[elem]) for elem in np.nonzero(motif)[0]]
+                motif_l = letter_motif(args, acid_location, acid_number,acids=utils.ACIDS_LIST)
+            
                 
-                    #считаем количество интервалов с тройным мотивом в background
-                    x=sum(1 for interval in background if ((interval[triple_motif_1_y]==acids[triple_motif_1_x]) 
-                                                           and (interval[triple_motif_2_y]==acids[triple_motif_2_x]) 
-                                                           and (interval[fourth_y]==acids[fourth_x]))
-                                                           and (interval[triple_motif_3_y]==acids[triple_motif_3_x])
-                                                           and (interval[triple_motif_4_y]==acids[triple_motif_4_x])) 
-                                                        
 
-                    #считаем p-value этого комплексного мотива
-                    p=x/len(background)
-
-                    #теперь нужно подсчитать встречаемость комплексного мотива в исходном датасете
-                    n=sum(1 for interval in intervals if ((interval[triple_motif_1_y]==acids[triple_motif_1_x]) 
-                                                           and (interval[triple_motif_2_y]==acids[triple_motif_2_x]) 
-                                                           and (interval[fourth_y]==acids[fourth_x]))
-                                                           and (interval[triple_motif_3_y]==acids[triple_motif_3_x])
-                                                           and (interval[triple_motif_4_y]==acids[triple_motif_4_x]))
-                    #считаем Р вероятность по биномиальной формуле для тройного мотива
-                    P_ABCD=0
-                    c=n
-                    while c<=len(intervals):
-                        P_ABCD=P_ABCD+binom.pmf(n,len(intervals),p,loc=0)
-                        c+=1
-                    #print('P_AB:',P_AB)
-
-                    #нашли вероятность P(ABC), теперь найдем условную вероятность
-                    P_BCD=triple_motifs['P_ABC'].values[k]      
-                    #print('P_B:',P_B,motif_1_x,motif_1_y)
-                    P_A_BCD=P_ABCD/P_BCD
-                    #print('P_A_B:',P_A_B)
+                n_ABCD = counter(args, back_table, acid_location, acid_number, acids = utils.ACIDS_LIST)
+                p_value = n_ABCD/back_len
+                c = n_ABCD
+                result = 0
+                while c<=int_len:
+                    result=result+binom.pmf(c,int_len,p_value,loc=0)
+                    c+=1
+                probability_i = table['P_ABC'][i]
                 
-                    #теперь разбираемся с названием мотива
-                    names=dict()
-                    y=[triple_motif_1_y,triple_motif_2_y,triple_motif_3_y,triple_motif_4_y,fourth_y]
-                    x=[triple_motif_1_x,triple_motif_2_x,triple_motif_3_x,triple_motif_4_x,fourth_x]
-#                    print(len(y))
-                    for i in range(len(y)):
-                        igrek=y[i]
-                        ixes=x[i]
-                        if igrek!=interval_length:
-                            names[igrek]=acids[ixes]
-                        else:
-                            names[igrek]=modification_site.lower()
+                
                     
-                    list_names=list(names.keys())
-#                    print('list names 0',list_names)
-                    list_names.sort()
-#                    print('list names',list_names)
-                    
-                    name=[names[list_names[0]],'.'*(list_names[1]-list_names[0]-1),names[list_names[1]],
-                          '.'*(list_names[2]-list_names[1]-1),names[list_names[2]],'.'*(list_names[3]-list_names[2]-1),
-                          names[list_names[3]],'.'*(list_names[4]-list_names[3]-1),names[list_names[4]]]
-                    motif=''.join(name)
-                          
-                    loc=((acids.index(names[list_names[0]].upper()),list_names[0]), (acids.index(names[list_names[1]].upper()),list_names[1]),
-                          (acids.index(names[list_names[2]].upper()),list_names[2]),(acids.index(names[list_names[3]].upper()),list_names[3]),
-                          (acids.index(names[list_names[4]].upper()),list_names[4]))
-                          
-                    probability.append(P_A_BCD)
-
-                    occurrences.append(n)
-                    
-                    backgrounds.append(x)
-
-                    P_triple.append(P_ABCD)
-                    
-                    P_BCD_triple.append(P_BCD)
-                          
-                    location.append(loc)
-                          
-                    indexes.append(motif)      
-                    
-                    
-    motifs=pd.DataFrame({'Location': location, 'Probability': probability , 'Occurrences' : occurrences, 'Backgrounds':backgrounds, 'P_ABCD' : P_triple, 'P_BCD' : P_BCD_triple}, index=indexes)
-    sorted_motifs=motifs.copy()
-    sorted_motifs.sort_values('Probability',ascending=True,inplace=True)
-    fourth_motifs=sorted_motifs
+                P_if=result/probability_i
+                
+                result_table=result_table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_ABCD,
+                                        'P_ABCD':result,'P_A|BCD':P_if},
+                                            ignore_index=True)
+    print('!!!! result',result_table)            
+        
+    return triple_vector    
     
-    count=[]
-    for i in range(len(fourth_motifs['Probability'].values)):
-        if ((fourth_motifs['Probability'].values[i])<0.05/len(fourth_motifs['Probability'].values) and (fourth_motifs['Occurrences'].values[i])>10):
-            count.append(1)
-        else:
-            count.append(0)
-    fourth_motifs['Count']=count
-    
-    fourth_motifs_selection=fourth_motifs.where(fourth_motifs['Count']==1).dropna()
-    fourth_motifs_selection_copy=fourth_motifs_selection.copy()
-    del fourth_motifs_selection_copy['Count']
-       
-    if probability==[]:
-        fourth_motifs_selection_copy=None
-    
-#     if fourth_motifs_selection_copy is not None:
-#         volcano_plot_for_motifs(fourth_motifs,path_results,name='triple_motifs')    
-    logging.info(str(len(fourth_motifs_selection_copy['Occurrences'].values))+u' quadruple (four acid length) motifs were identificated')    
-    return fourth_motifs_selection_copy
 
 def motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_saving_dir, acids=utils.ACIDS_LIST):
-    #primary=primary_motifs_creator(acids,P_final,interval_length,modification_site)
+
     intervals=(idPeptides['fasta_match']).sum()
     vector,single=single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_saving_dir, acids=utils.ACIDS_LIST)
+    utils.saving_table(results_saving_dir,single,args.interval_length,'single')
     double = double_motifs_creator_bi(args, vector, single, intervals, background, acids = utils.ACIDS_LIST)
-    triple = triple_motifs_creator_bi(args, double)
-#    utils.saving_table(results_saving_dir,single,interval_length,'single')
-#    double=double_motifs_creator_bi(args, vector, single, intervals, background, P_binomial, results_saving_dir, acids=utils.ACIDS_LIST)
-#    if double is not None:
-#        utils.saving_table(results_saving_dir,double,interval_length,'double')
-#        triple=triple_motifs_creator_bi(double,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
-#    if triple is not None:
-#        utils.saving_table(results_saving_dir,triple,interval_length,'triple')
-#        quadruple=quadruple_motifs_creator_bi(triple,single,background,intervals,modification_site,interval_length,results_saving_dir, acids=utils.ACIDS_LIST)
-#    if quadruple is not None:
-#        utils.saving_table(results_saving_dir,quadruple,interval_length,'quadruple')
-#    return single,double,triple,quadruple
-    return vector,single, double, triple
+    if double is not None:
+        b=len(double['Observed'].values)
+        result_double = (double.loc[double['P_A|B']<args.p_value/b][double['Observed']>=args.occurrences]).reset_index()
+        utils.saving_table(results_saving_dir,result_double,args.interval_length,'double')
+        triple = triple_motifs_creator_bi(args, vector, double, intervals, background)
+        if triple is not None:
+            b=len(triple['Observed'].values)
+            result_triple = (triple.loc[triple['P_A|BC']<args.p_value/b][triple['Observed']>=args.occurrences]).reset_index()
+            utils.saving_table(results_saving_dir,result_triple,args.interval_length,'triple')
+            quadruple = quadruple_motifs_creator_bi(args, vector, triple, intervals, background)
+            if quadruple is not None:
+                b=len(quadruple['Observed'].values)
+                result_quadruple = (quadruple.loc[quadruple['P_A|BC']<args.p_value/b][quadruple['Observed']>=args.occurrences]).reset_index()
+                utils.saving_table(results_saving_dir,result_quadruple,args.interval_length,'quadruple')
+            else:
+                quadruple=None
+        else:
+            triple = None
+    else:
+        double = None           
+    return single, double, triple, quadruple

@@ -144,10 +144,10 @@ def output(args):
         P_binomial= binomial.P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=ACIDS_LIST)
 #        occurrences = binomial.occurrences_counter_bi(intervals, args.interval_length, args.modification_site, results_saving_dir, acids=ACIDS_LIST)
 #        P_final = binomial.final_validation_bi(args.interval_length, occurrences, P, acids=ACIDS_LIST)
-        vector,single,double,triple = binomial.motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_saving_dir, acids=ACIDS_LIST)
+        single,double,triple,quadruple = binomial.motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_saving_dir, acids=ACIDS_LIST)
 
         logging.info(msg='Program was finished successfully') 
-        return vector,single,double,triple
+        return single,double,triple,quadruple
     else:
         
 #        occurrences = get_occurences( (idPeptides['fasta_match']).sum(), args.interval_length,
