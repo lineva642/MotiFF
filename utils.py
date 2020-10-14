@@ -29,6 +29,7 @@ import binomial
 from collections import defaultdict, Counter
 import re
 
+
 def saving(args):
 
     sample_saving_dir = os.path.join(args.working_dir, args.name_sample)
@@ -44,28 +45,29 @@ def saving(args):
             os.mkdir(results_saving_dir)
 #    logging.basicConfig(level = logging.DEBUG,filename=os.path.join(results_saving_dir,'mylog.log'))        
 #    logging.info(u'Directories for result saving are created')       
-    return  sample_saving_dir,results_saving_dir
+    return  sample_saving_dir, results_saving_dir
 
-def fasta_match(row, bg_fasta, interval_length,modification_site):
+
+def fasta_match(row, bg_fasta, interval_length, modification_site):
     intervals = []
-    k=0
-    print(row['Peptide'],k)
+    # k = 0
+    # print(row['Peptide'])
     for name, seq in bg_fasta.items():
         i = 0
-        start = seq[i:].find(row['Peptide'].replace('*',''))
+        start = seq[i:].find(row['Peptide'].replace('*', ''))
         i = start
         while start >= 0:
             for asterisks, modif in enumerate(re.finditer('\*', row['Peptide']), 1):
                 interval_start = i + modif.span()[0] - interval_length - asterisks
                 interval_end = interval_start + 2 * interval_length + 1
-                interval=seq[interval_start: interval_end]
-                if interval[interval_length]==modification_site:
+                interval = seq[interval_start: interval_end]
+                if interval[interval_length] == modification_site:
                     intervals.append(interval)
                 else:
-                    print('wrong',interval)
-            start = seq[i+1:].find(row['Peptide'].replace('*',''))
+                    logging.info('Peptide has another modification site %s', row['Peptide'])
+            start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
             i += start + 1
-    k+=1        
+    # k += 1        
     return intervals
 
 
@@ -73,7 +75,7 @@ def background_maker(args):
 #    print('Making background DB')
     #хотим сделать background из идентифицированных белков
     bg_fasta = dict()
-    bg = defaultdict()
+    # bg = defaultdict()
     background = set()
     with fasta.read(args.fasta) as f:
         for name, sequence in f:
@@ -82,10 +84,10 @@ def background_maker(args):
             bg_fasta[name_id] = extended_seq
             mod_aa_indexes = re.finditer(args.modification_site, extended_seq)
             bg_intervals = [extended_seq[i.span()[0] - args.interval_length: i.span()[0] + args.interval_length + 1] for i in mod_aa_indexes]
-            bg[name_id] = bg_intervals
+            # bg[name_id] = bg_intervals
             background.update(bg_intervals)
 
-    logging.info(u'Set of ' + str(len(background))+ u' background intervals is created')
+    logging.info(u'Set of %s background intervals is created', len(background))
     logging.debug(u'Background DB is ready')    
     return background, bg_fasta   
 
@@ -95,56 +97,64 @@ def background_maker(args):
 def aa_counter(col):
     return pd.Series(Counter(col))
 
-def get_occurences(intervals_list, interval_length, saving_file, acids=ACIDS_LIST):
 
+def get_occurences(intervals_list, interval_length, saving_file, acids=ACIDS_LIST):
+    logging.debug('Intervals list length :\n%s', len(intervals_list))
     df = pd.DataFrame([list(i) for i in intervals_list], columns=range(-interval_length, interval_length + 1))
-    occ = df.apply(aa_counter, axis=0)
-    print(occ)
+    occ = pd.DataFrame(index=acids)
+    occ[df.columns] = df.apply(aa_counter, axis=0)
+    logging.debug("Occurance matrix (%s):\n%s", saving_file, occ)
     occ.to_csv(saving_file, sep='\t')
     return occ
 
-def saving_table(results_saving_dir,result,interval_length,name):
-    path=os.path.join(results_saving_dir,'table'+str(interval_length)+'_'+name+'.csv')
+
+def saving_table(results_saving_dir, result, interval_length, name):
+    path=os.path.join(results_saving_dir, 'table' + str(interval_length) + '_' + name + '.csv')
     result.to_csv(path)   
+ 
     
-def peptides_table(args,sample_saving_dir,bg_fasta):
-    if os.path.exists(os.path.join(sample_saving_dir, 'peptide_identification.csv')):
+def peptides_table(args, sample_saving_dir, bg_fasta):
+    # if os.path.exists(os.path.join(sample_saving_dir, 'peptide_identification.csv')):
         
-        idPeptides=pd.read_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'),sep=',',usecols=[1,2])
-        for i in range(len(idPeptides['fasta_match'].index)):
-            idPeptides['fasta_match'][i]=(((idPeptides['fasta_match'][i].replace('[','')).replace(']','')).replace("'",'')).split(',')
-    else:    
-        peptides=[]
-        with open(args.dataset) as f:
-            for line in f:
-                peptides.append(line[:-1])
-        Peptides=pd.DataFrame({'Peptide':peptides})
-        Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length, args.modification_site], axis=1)
-        # print(background)np
-        Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
-        # print(Peptides)
-        idPeptides = Peptides[Peptides['unique'] == True]
-        idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
-        
+    #     idPeptides = pd.read_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), sep=',', usecols=[1,2])
+    #     for i in range(len(idPeptides['fasta_match'].index)):
+    #         idPeptides['fasta_match'][i]=(((idPeptides['fasta_match'][i].replace('[','')).replace(']','')).replace("'",'')).split(',')
+    # else:    
+        # peptides = []
+        # with open(args.dataset) as f:
+        #     for line in f:
+        #         peptides.append(line[:-1])    
+        # Peptides = pd.DataFrame({'Peptide':peptides})
+    Peptides = pd.read_table(args.dataset, names=['Peptide'])
+    logging.info('Peptide table contains %d peptides', Peptides.shape[0])
+    logging.debug('Initial Peptides df:\n%s', Peptides.head())
+    Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length, args.modification_site], axis=1)
+    # print(background)np
+    Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
+    # print(Peptides)
+    idPeptides = Peptides[Peptides['unique'] == True]
+    logging.info('Found %d unique peptides motifs', len(idPeptides))
+    idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
+    logging.debug('Prepared Peptides df:\n%s', idPeptides) 
     return idPeptides    
 
+
 def output(args):
-    sample_saving_dir,results_saving_dir = saving(args)
-    background, bg_fasta = background_maker(args)
-    idPeptides=peptides_table(args,sample_saving_dir,bg_fasta)
     
-    occurrences = get_occurences( (idPeptides['fasta_match']).sum(), args.interval_length,
+    sample_saving_dir, results_saving_dir = saving(args)
+    background, bg_fasta = background_maker(args)
+    idPeptides = peptides_table(args, sample_saving_dir, bg_fasta)
+    
+    occurrences = get_occurences((idPeptides['fasta_match']).sum(), args.interval_length,
                              os.path.join(results_saving_dir, 'occurences.csv'), 
                              acids=ACIDS_LIST)
     background_n = get_occurences(background, args.interval_length, 'background.csv')
-    print(idPeptides)
+    logging.debug("Final idPeptides table:\n%s", idPeptides.head())
 
-    if args.algorithm=="binom":
-#        print('I AM HERE')
-        P_binomial= binomial.P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=ACIDS_LIST)
-#        occurrences = binomial.occurrences_counter_bi(intervals, args.interval_length, args.modification_site, results_saving_dir, acids=ACIDS_LIST)
-#        P_final = binomial.final_validation_bi(args.interval_length, occurrences, P, acids=ACIDS_LIST)
-        single,double,triple,quadruple = binomial.motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_saving_dir, acids=ACIDS_LIST)
+    if args.algorithm == "binom":
+        logging.debug('Binomial algorithm is used.')        
+        P_binomial = binomial.P_counter_bi(occurrences, background_n, args, results_saving_dir)
+        single, double, triple, quadruple = binomial.motifs_bi(P_binomial, occurrences, idPeptides, background, args, results_saving_dir)
 
         logging.info(msg='Program was finished successfully') 
         return single,double,triple,quadruple

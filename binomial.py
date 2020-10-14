@@ -27,26 +27,14 @@ import utils
 ##АЛГОРИТМ BINOMIAL
 
 
-def P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=utils.ACIDS_LIST):
-
-    
-    p_value = background_n/(background_n[background_n.columns[0]].sum())
-    P_binomial=pd.DataFrame().reindex_like(p_value)
-    for i in range( -args.interval_length, args.interval_length + 1):
-        for acid in acids:
-            result=0
-            c=occurrences[i][acid]
-            while c<=(occurrences[occurrences.columns[0]].sum()):
-                result=result+binom.pmf(c,occurrences[occurrences.columns[0]].sum(),p_value[i][acid],loc=0)
-                c+=1
-            P_binomial[i][acid]=result
-    utils.saving_table(results_saving_dir,P_binomial,args.interval_length,'P_binomial_matrix')            
-    print(P_binomial)        
-    
-    
+def P_counter_bi(occurrences, background_n, args, results_saving_dir):
+    fg_size = occurrences[0].sum()
+    bg_prob = background_n / background_n[0].sum()#х
+    binom_prob = pd.DataFrame(binom.sf(occurrences - 1, fg_size, bg_prob), columns=bg_prob.columns, index=bg_prob.index)
+    utils.saving_table(results_saving_dir, binom_prob, args.interval_length, 'P_binomial_matrix')            
     logging.info(u'Binomial probability for each amino acid in matrix was counted')
-    
-    return P_binomial
+    logging.debug("P_binomial matrix:\n%s", binom_prob)
+    return binom_prob
 
 
 # def letter_motif(args,indexes,acids=utils.ACIDS_LIST):
@@ -65,11 +53,12 @@ def P_counter_bi(occurrences, background_n, args, results_saving_dir, acids=util
 #     motif=''.join([motif,position[keys[len(keys)-1]]])
 #     return motif
 
-def letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST):
+def get_letter_motif(args, acid_location, acid_number, acids=utils.ACIDS_LIST):
+    motif = []
     position=dict()
     for i,ik in zip(acid_location, acid_number):
         position[i]=acids[ik-1]
-    position[args.interval_length]=(args.modification_site).lower()    
+    position[args.interval_length]= args.modification_site.lower()    
 
     keys=list(position.keys())
     keys.sort()
@@ -81,15 +70,15 @@ def letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST):
     motif=''.join([motif,position[keys[len(keys)-1]]])
     return motif       
 
-def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_saving_dir, acids=utils.ACIDS_LIST):
-    P_binomial=P_binomial[P_binomial<args.p_value/occurrences.size]
-    print('occurrences.size',occurrences.size)
-    occurrences=occurrences[occurrences>args.occurrences]
-    result=P_binomial*occurrences
-    
-    primary_motifs_number=[]
-    primary_motifs_letter=[]
-    primary_motifs_probability=[]
+def single_motifs_creator_bi(binom_prob, occurrences, intervals, args, results_saving_dir, acids=utils.ACIDS_LIST):
+    binom_prob = binom_prob[binom_prob < args.p_value / occurrences.size] # check this
+    logging.debug('Single motif binomial probabilities:\n%s', binom_prob)
+    occurrences = occurrences[occurrences > args.occurrences]
+    result = binom_prob* occurrences
+    logging.debug('Single motif result:\n%s', result)
+    primary_motifs_number = []
+    primary_motifs_letter = []
+    primary_motifs_probability = []
     for i in result.columns:
         for j in result.index:
             if (math.isnan(result[i][j])):
@@ -102,18 +91,19 @@ def single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_s
                 acid_location, acid_number = [i+args.interval_length], [acids.index(j) + 1] 
 
                 # indexes={(i+args.interval_length):(acids.index(j)+1)}
-                l_motif=letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST)
+                l_motif= get_letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST)
                     
                 primary_motifs_letter.append(l_motif)
                 primary_motifs_number.append(n_motif)
-                primary_motifs_probability.append(P_binomial[i][j])
+                primary_motifs_probability.append(binom_prob[i][j])
     vector=np.array(primary_motifs_number)    
     table=pd.DataFrame({'Number motif':primary_motifs_number,'Letter motif':primary_motifs_letter,'Probability':primary_motifs_probability})
     # print(table)
-    # print(vector)      
+    # print(vector)  
+    logging.debug('Table %s', table)
     utils.saving_table(results_saving_dir,table,args.interval_length,'primary')
     logging.info(str(len(table['Number motif'].values))+u' primary (one acid length) motifs were identificated')
-   
+    print('vector', vector)
     return vector,table 
 
 def counter(args, table, acid_location, acid_number, acids = utils.ACIDS_LIST):
@@ -151,7 +141,7 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
             if (elem.any())==False:
                 # print('double_motif',motif)
                 motif = vector[i] + vector[j]
-                print('double_motif',motif)
+                # print('double_motif',motif)
                 #хотим восстановить буквенный вид мотива
                 acid_location = [elem for elem in np.nonzero(motif)[0]]
                 acid_number = [int(motif[elem]) for elem in np.nonzero(motif)[0]]
@@ -177,7 +167,7 @@ def double_motifs_creator_bi(args, vector, single, intervals, background, acids 
                                             ignore_index=True)
                 
 
-    print(table)
+    # print(table)
     return table
  
 def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background):
@@ -191,13 +181,13 @@ def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background)
     table=(double_motifs.loc[double_motifs['P_A|B']<args.p_value/b][double_motifs['Observed']>=args.occurrences]).reset_index()
     del table['index']
     
-    print('!!!',table)
+    # print('!!!',table)
 
     
     double_vector=np.zeros((len(table['Number motif'].values),args.interval_length*2+1))
     for i,ik in enumerate(table['Number motif'].values):
         double_vector[i,:]=table['Number motif'].values[i]
-    print('!!!',double_vector)
+    # print('!!!',double_vector)
     
     b=np.tensordot(double_vector,vector.T,axes=0)
     matrix=np.zeros((len(double_vector),len(vector),args.interval_length*2+1))
@@ -205,7 +195,7 @@ def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background)
     for i,ik in enumerate(b):
         for j,jk in enumerate(b[0][0][0]):
             matrix[i,j,:]=np.diag(b[i,:,:,j])
-    print('!!!',matrix)
+    # print('!!!',matrix)
 
     int_table = pd.DataFrame([list(i) for i in intervals], columns=range(-args.interval_length, args.interval_length + 1))
     back_table = pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1))
@@ -246,7 +236,7 @@ def triple_motifs_creator_bi(args, vector, double_motifs, intervals, background)
                 result_table=result_table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_ABC,
                                         'P_ABC':result,'P_A|BC':P_if},
                                             ignore_index=True)
-    print('!!! result',result_table)            
+    # print('!!! result',result_table)            
         
     return result_table   
 
@@ -259,13 +249,13 @@ def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, backgrou
     table=(triple_motifs.loc[triple_motifs['P_A|BC']<args.p_value/b][triple_motifs['Observed']>=args.occurrences]).reset_index()
     del table['index']
     
-    print('!!!!',table)
+    # print('!!!!',table)
     
     
     triple_vector=np.zeros((len(table['Number motif'].values),args.interval_length*2+1))
     for i,ik in enumerate(table['Number motif'].values):
         triple_vector[i,:]=table['Number motif'].values[i]
-    print('!!!!',triple_vector)
+    # print('!!!!',triple_vector)
     
     b=np.tensordot(triple_vector,vector.T,axes=0)
     matrix=np.zeros((len(triple_vector),len(vector),args.interval_length*2+1))
@@ -273,7 +263,7 @@ def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, backgrou
     for i,ik in enumerate(b):
         for j,jk in enumerate(b[0][0][0]):
             matrix[i,j,:]=np.diag(b[i,:,:,j])
-    print('!!!!',matrix)
+    # print('!!!!',matrix)
 
     int_table = pd.DataFrame([list(i) for i in intervals], columns=range(-args.interval_length, args.interval_length + 1))
     back_table = pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1))
@@ -315,15 +305,15 @@ def quadruple_motifs_creator_bi(args, vector, triple_motifs, intervals, backgrou
                 result_table=result_table.append({'Letter motif':motif_l,'Number motif':motif,'Observed':n_ABCD,
                                         'P_ABCD':result,'P_A|BCD':P_if},
                                             ignore_index=True)
-    print('!!!! result',result_table)            
+    # print('!!!! result',result_table)            
         
     return triple_vector    
     
 
-def motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_saving_dir, acids=utils.ACIDS_LIST):
+def motifs_bi(binom_prob, occurrences, idPeptides, background, args, results_saving_dir):
 
-    intervals=(idPeptides['fasta_match']).sum()
-    vector,single=single_motifs_creator_bi(args, P_binomial, occurrences, intervals, results_saving_dir, acids=utils.ACIDS_LIST)
+    intervals = idPeptides['fasta_match']
+    vector, single = single_motifs_creator_bi(binom_prob, occurrences, intervals, args,  results_saving_dir, acids=utils.ACIDS_LIST)
     utils.saving_table(results_saving_dir,single,args.interval_length,'single')
     double = double_motifs_creator_bi(args, vector, single, intervals, background, acids = utils.ACIDS_LIST)
     if double is not None:
@@ -341,7 +331,7 @@ def motifs_bi(args, P_binomial, occurrences, idPeptides, background, results_sav
                 result_quadruple = (quadruple.loc[quadruple['P_A|BC']<args.p_value/b][quadruple['Observed']>=args.occurrences]).reset_index()
                 utils.saving_table(results_saving_dir,result_quadruple,args.interval_length,'quadruple')
             else:
-                quadruple=None
+                quadruple = None
         else:
             triple = None
     else:
