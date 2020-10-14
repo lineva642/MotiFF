@@ -89,7 +89,7 @@ def background_maker(args):
 
     logging.info(u'Set of %s background intervals is created', len(background))
     logging.debug(u'Background DB is ready')    
-    return background, bg_fasta   
+    return pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1)), bg_fasta   
 
 
 #функции для валидации
@@ -98,13 +98,11 @@ def aa_counter(col):
     return pd.Series(Counter(col))
 
 
-def get_occurences(intervals_list, interval_length, saving_file, acids=ACIDS_LIST):
-    logging.debug('Intervals list length :\n%s', len(intervals_list))
-    df = pd.DataFrame([list(i) for i in intervals_list], columns=range(-interval_length, interval_length + 1))
+def get_occurences(intervals_df, acids=ACIDS_LIST):
+    logging.debug('Intervals list length:\n%s', len(intervals_df))
     occ = pd.DataFrame(index=acids)
-    occ[df.columns] = df.apply(aa_counter, axis=0)
-    logging.debug("Occurance matrix (%s):\n%s", saving_file, occ)
-    occ.to_csv(saving_file, sep='\t')
+    occ[intervals_df.columns] = intervals_df.apply(aa_counter, axis=0)
+    # occ.to_csv(saving_file, sep='\t')
     return occ
 
 
@@ -129,23 +127,26 @@ def peptides_table(args, sample_saving_dir, bg_fasta):
 def output(args):
     
     sample_saving_dir, results_saving_dir = saving(args)
-    background, bg_fasta = background_maker(args)
+    bg_intervals, bg_fasta = background_maker(args)
     idPeptides = peptides_table(args, sample_saving_dir, bg_fasta)
-    
-    occurrences = get_occurences((idPeptides['fasta_match']).sum(), args.interval_length,
-                             os.path.join(results_saving_dir, 'occurences.csv'), 
-                             acids=ACIDS_LIST)
-    background_n = get_occurences(background, args.interval_length, 'background.csv')
+    fg_intervals = pd.DataFrame([list(i) for i in idPeptides['fasta_match'].sum()], 
+                                columns=range(-args.interval_length, args.interval_length + 1))
+ 
     logging.debug("Final idPeptides table:\n%s", idPeptides.head())
 
     if args.algorithm == "binom":
         logging.debug('Binomial algorithm is used.')  
-        binomial.binomial_alg(occurrences, background_n, args, results_saving_dir)
-        logging.info(msg='Program was finished successfully') 
+        binomial.binomial_alg(fg_intervals, bg_intervals, args, results_saving_dir)
+        single, double, triple, quadruple = 0, 0, 0, 0
     else:
+        fg_occ = get_occurences(fg_intervals, args.interval_length,
+                             os.path.join(results_saving_dir, 'occurences.csv'), 
+                             acids=ACIDS_LIST)
+        bg_occ = get_occurences(bg_intervals, args.interval_length, 'background.csv')
         p_value=chi2.p_value(occurrences,background_n,args.interval_length,results_saving_dir)
 
         single, double, triple, quadruple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
-        logging.info(msg='Program was finished successfully') 
-        return single, double, triple, quadruple
+        
+    logging.info(msg='Program was finished successfully') 
+    return single, double, triple, quadruple
 
