@@ -139,12 +139,9 @@ def output(args):
     logging.debug("Final idPeptides table:\n%s", idPeptides.head())
 
     if args.algorithm == "binom":
-        logging.debug('Binomial algorithm is used.')        
-        P_binomial = binomial.P_counter_bi(occurrences, background_n, args, results_saving_dir)
-        single, double, triple, quadruple = binomial.motifs_bi(P_binomial, occurrences, idPeptides, background, args, results_saving_dir)
-
+        logging.debug('Binomial algorithm is used.')  
+        binomial.binomial_alg(occurrences, background_n, args, results_saving_dir)
         logging.info(msg='Program was finished successfully') 
-        return single,double,triple,quadruple
     else:
         p_value=chi2.p_value(occurrences,background_n,args.interval_length,results_saving_dir)
 
