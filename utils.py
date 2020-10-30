@@ -50,8 +50,6 @@ def saving(args):
 
 def fasta_match(row, bg_fasta, interval_length, modification_site):
     intervals = []
-    # k = 0
-    # print(row['Peptide'])
     for name, seq in bg_fasta.items():
         i = 0
         start = seq[i:].find(row['Peptide'].replace('*', ''))
@@ -67,7 +65,14 @@ def fasta_match(row, bg_fasta, interval_length, modification_site):
                     logging.info('Peptide has another modification site %s', row['Peptide'])
             start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
             i += start + 1
-    # k += 1        
+    if not intervals:
+        pep_seq = "-" * interval_length + row['Peptide'] + "-" * interval_length
+        for asterisks, modif in enumerate(re.finditer('\*', pep_seq), 1):
+            if pep_seq[modif.span()[0] - 1] == modification_site:
+                interval_start = modif.span()[0] - interval_length - asterisks
+                interval_end = interval_start + 2 * interval_length + 1
+                if interval_start >= 0 and interval_length < len(pep_seq.replace('*', '')):
+                    intervals.append(pep_seq.replace('*', '')[interval_start: interval_end])
     return intervals
 
 
@@ -116,14 +121,14 @@ def peptides_table(args, sample_saving_dir, bg_fasta):
     logging.info('Peptide table contains %d peptides', Peptides.shape[0])
     logging.debug('Initial Peptides df:\n%s', Peptides.head())
     Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length, args.modification_site], axis=1)
-    Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
-    idPeptides = Peptides[Peptides['unique'] == True]
-    logging.info('Found %d unique peptides motifs', len(idPeptides))
-    idPeptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
-    logging.debug('Prepared Peptides df:\n%s', idPeptides) 
-    return idPeptides    
+    # Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
+    # idPeptides = Peptides#[Peptides['unique'] == True]
+    logging.info('Found %d peptides motifs', len(set(Peptides['fasta_match'].sum())))
+    Peptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
+    logging.debug('Prepared Peptides df:\n%s', Peptides) 
+    return Peptides    
 
-
+#TODO: эту функцию, на мой взгляд, лучше перенести в мейн.
 def output(args):
     
     sample_saving_dir, results_saving_dir = saving(args)
@@ -136,14 +141,15 @@ def output(args):
 
     if args.algorithm == "binom":
         logging.debug('Binomial algorithm is used.')  
-        binomial.binomial_alg(fg_intervals, bg_intervals, args, results_saving_dir)
+        result = binomial.binomial_alg(fg_intervals, bg_intervals, args)
+        result.to_csv('Binom_motifs.csv', sep='\t')
         single, double, triple, quadruple = 0, 0, 0, 0
     else:
         fg_occ = get_occurences(fg_intervals, args.interval_length,
                              os.path.join(results_saving_dir, 'occurences.csv'), 
                              acids=ACIDS_LIST)
         bg_occ = get_occurences(bg_intervals, args.interval_length, 'background.csv')
-        p_value=chi2.p_value(occurrences,background_n,args.interval_length,results_saving_dir)
+        p_value=chi2.p_value(occurrences, background_n, args.interval_length, results_saving_dir)
 
         single, double, triple, quadruple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
         
