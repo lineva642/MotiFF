@@ -10,7 +10,7 @@ import utils
 import numpy as np
 import pandas as pd
 
-from pyteomics import fasta
+# from pyteomics import fasta
 from scipy.stats import binom
 
 
@@ -60,7 +60,7 @@ def find_motifs(binom_prob, fg_occ, mask, args):
     aa_df = pd.DataFrame(np.array([np.array(fg_occ.index)] * fg_occ.shape[1]).T, index=fg_occ.index, columns=fg_occ.columns)
     motifs = []
     motifs_pairs = []
-    mot_length = len(mask)
+    # mot_length = len(mask)
     df_slice = aa_df[(binom_prob <= args.p_value) & (fg_occ >= args.occurrences)].apply(lambda x: x.dropna().to_dict(), axis=1)
     logging.debug("AA motif table:\n%s", df_slice)
     for i in df_slice:

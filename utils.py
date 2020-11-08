@@ -8,25 +8,10 @@ Created on Wed Aug 12 13:37:30 2020
 
 ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D','-']
 import os
-from urllib.request import urlretrieve
-import pylab
-import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from pyteomics import fasta
-import gzip
-#import seaborn as sns
-# from scipy.stats import binom
-import math
-import random
-import profile
-from scipy.stats import chisquare
-
-import argparse
 import logging
-import chi2
-import binomial
-from collections import defaultdict, Counter
+from collections import Counter
 import re
 
 
@@ -44,7 +29,7 @@ def saving(args):
         if not (os.path.exists(results_saving_dir)):
             os.mkdir(results_saving_dir)
 #    logging.basicConfig(level = logging.DEBUG,filename=os.path.join(results_saving_dir,'mylog.log'))        
-#    logging.info(u'Directories for result saving are created')       
+    logging.info(u'Directories for result saving are created')       
     return  sample_saving_dir, results_saving_dir
 
 
@@ -67,12 +52,17 @@ def fasta_match(row, bg_fasta, interval_length, modification_site):
             i += start + 1
     if not intervals:
         pep_seq = "-" * interval_length + row['Peptide'] + "-" * interval_length
+        # print('pep_seq',pep_seq)
         for asterisks, modif in enumerate(re.finditer('\*', pep_seq), 1):
+            # print('asterisks, modif', asterisks, modif)
             if pep_seq[modif.span()[0] - 1] == modification_site:
+                # print('modif.span()',modif.span(),modif.span()[0])
                 interval_start = modif.span()[0] - interval_length - asterisks
                 interval_end = interval_start + 2 * interval_length + 1
+                # print('start & end',interval_start,interval_end)
                 if interval_start >= 0 and interval_length < len(pep_seq.replace('*', '')):
                     intervals.append(pep_seq.replace('*', '')[interval_start: interval_end])
+                    # print('final_int',pep_seq.replace('*', '')[interval_start: interval_end])
     return intervals
 
 
@@ -127,32 +117,3 @@ def peptides_table(args, sample_saving_dir, bg_fasta):
     Peptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
     logging.debug('Prepared Peptides df:\n%s', Peptides) 
     return Peptides    
-
-#TODO: эту функцию, на мой взгляд, лучше перенести в мейн.
-def output(args):
-    
-    sample_saving_dir, results_saving_dir = saving(args)
-    bg_intervals, bg_fasta = background_maker(args)
-    idPeptides = peptides_table(args, sample_saving_dir, bg_fasta)
-    fg_intervals = pd.DataFrame([list(i) for i in idPeptides['fasta_match'].sum()], 
-                                columns=range(-args.interval_length, args.interval_length + 1))
- 
-    logging.debug("Final idPeptides table:\n%s", idPeptides.head())
-
-    if args.algorithm == "binom":
-        logging.debug('Binomial algorithm is used.')  
-        result = binomial.binomial_alg(fg_intervals, bg_intervals, args)
-        result.to_csv('Binom_motifs.csv', sep='\t')
-        single, double, triple, quadruple = 0, 0, 0, 0
-    else:
-        fg_occ = get_occurences(fg_intervals, args.interval_length,
-                             os.path.join(results_saving_dir, 'occurences.csv'), 
-                             acids=ACIDS_LIST)
-        bg_occ = get_occurences(bg_intervals, args.interval_length, 'background.csv')
-        p_value=chi2.p_value(occurrences, background_n, args.interval_length, results_saving_dir)
-
-        single, double, triple, quadruple=chi2.motifs(idPeptides, background, occurrences,background_n,p_value,args,results_saving_dir)
-        
-    logging.info(msg='Program was finished successfully') 
-    return single, double, triple, quadruple
-
