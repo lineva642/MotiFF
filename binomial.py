@@ -53,7 +53,7 @@ def find_motifs(binom_prob, fg_occ, mask, args):
 
     """
     aa_df = pd.DataFrame(np.array([np.array(fg_occ.index)] * fg_occ.shape[1]).T, index=fg_occ.index, columns=fg_occ.columns)
-    motifs = []
+    motifs = set()
     new_masks = []
     df_slice = aa_df[(binom_prob <= args.p_value) & (fg_occ >= args.occurrences)].apply(lambda x: x.dropna().to_dict(), axis=1)
     motif = ['.'] * (2 * args.interval_length + 1)
@@ -68,7 +68,7 @@ def find_motifs(binom_prob, fg_occ, mask, args):
                     new_masks.append(mask + [(pos, aa)])
                     new_motif[index] = aa
                     mot = (''.join(new_motif).strip('.'), binom_prob.at[aa, pos], fg_occ.at[aa, pos])
-                    motifs.append(mot)
+                    motifs.update((mot,))
     return motifs, new_masks
 
 
