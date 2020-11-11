@@ -37,7 +37,7 @@ def saving(args):
 
 def fasta_match(row, bg_fasta, interval_length, modification_site):
     """Unless takes interval in the peptides, tries to find peptide in Fasta"""
-    intervals = []
+    intervals = set()
     # if not intervals:
     pep_seq = row['Peptide']
     # print('pep_seq',pep_seq)
@@ -49,10 +49,11 @@ def fasta_match(row, bg_fasta, interval_length, modification_site):
             interval_end = interval_start + 2 * interval_length + 1
             # print('start & end',interval_start,interval_end)
             if interval_start >= 0 and interval_length < len(pep_seq.replace('*', '')):
-                intervals.append(pep_seq.replace('*', '')[interval_start: interval_end])
+                intervals.update([pep_seq.replace('*', '')[interval_start: interval_end]])
             else:
-                logging.info('Can not take interval %s', row['Peptide'])
-                logging.info('try to find in Fasta')
+                # logging.info('Can not take interval %s.', row['Peptide'])
+                logging.info('Can not take interval %s. Try to find peptide in fasta file.', row['Peptide'])
+                fasta_intervals = []
                 for name, seq in bg_fasta.items():
                     i = 0
                     start = seq[i:].find(row['Peptide'].replace('*', ''))
@@ -62,13 +63,16 @@ def fasta_match(row, bg_fasta, interval_length, modification_site):
                             interval_start = i + modif.span()[0] - interval_length - asterisks
                             interval_end = interval_start + 2 * interval_length + 1
                             interval = seq[interval_start: interval_end]
-                            intervals.append(interval)
+                            fasta_intervals.append(interval)
                         start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
                         i += start + 1
+                if len(fasta_intervals) == 1:
+                    logging.info('%s found in fasta.', row['Peptide'])
+                    intervals.update(fasta_intervals)
         else:
             logging.info('Peptide has another modification site %s', row['Peptide'])
                 # print('final_int',pep_seq.replace('*', '')[interval_start: interval_end])
-    return intervals
+    return list(intervals)
 
 
 def background_maker(args):
