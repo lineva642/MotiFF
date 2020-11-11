@@ -6,13 +6,15 @@ Created on Wed Aug 12 13:37:30 2020
 
 """
 
-ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D','-']
+
 import os
 import pandas as pd
 from pyteomics import fasta
 import logging
 from collections import Counter
 import re
+
+ACIDS_LIST = ['Y','W','F','M','L','I','V','A','C','P','G','H','R','K','T','S','Q','N','E','D','-']
 
 
 def saving(args):
@@ -29,7 +31,7 @@ def saving(args):
         if not (os.path.exists(results_saving_dir)):
             os.mkdir(results_saving_dir)
 #    logging.basicConfig(level = logging.DEBUG,filename=os.path.join(results_saving_dir,'mylog.log'))        
-    logging.info(u'Directories for result saving are created')       
+    # logging.info(u'Directories for result saving are created')       
     return  sample_saving_dir, results_saving_dir
 
 
@@ -84,6 +86,8 @@ def background_maker(args):
 
     logging.info(u'Set of %s background intervals is created', len(background))
     logging.debug(u'Background DB is ready')    
+    with open('bg.csv', 'w') as f:
+        f.write('\n'.join(background))
     return pd.DataFrame([list(i) for i in background], columns=range(-args.interval_length, args.interval_length + 1)), bg_fasta   
 
 

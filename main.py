@@ -42,10 +42,9 @@ def output(args):
     sample_saving_dir, results_saving_dir = utils.saving(args)
     bg_intervals, bg_fasta = utils.background_maker(args)
     idPeptides = utils.peptides_table(args, sample_saving_dir, bg_fasta)
-    # print("idPeptides['fasta_match'].sum()",idPeptides['fasta_match'],idPeptides['fasta_match'].sum())
     fg_intervals = pd.DataFrame([list(i) for i in idPeptides['fasta_match'].sum()], 
                                 columns=range(-args.interval_length, args.interval_length + 1))
- 
+    
     logging.debug("Final idPeptides table:\n%s", idPeptides.head())
 
     if args.algorithm == "binom":
