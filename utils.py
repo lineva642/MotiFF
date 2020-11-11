@@ -36,35 +36,38 @@ def saving(args):
 
 
 def fasta_match(row, bg_fasta, interval_length, modification_site):
+    """Unless takes interval in the peptides, tries to find peptide in Fasta"""
     intervals = []
-    for name, seq in bg_fasta.items():
-        i = 0
-        start = seq[i:].find(row['Peptide'].replace('*', ''))
-        i = start
-        while start >= 0:
-            for asterisks, modif in enumerate(re.finditer('\*', row['Peptide']), 1):
-                interval_start = i + modif.span()[0] - interval_length - asterisks
-                interval_end = interval_start + 2 * interval_length + 1
-                interval = seq[interval_start: interval_end]
-                if interval[interval_length] == modification_site:
-                    intervals.append(interval)
-                else:
-                    logging.info('Peptide has another modification site %s', row['Peptide'])
-            start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
-            i += start + 1
-    if not intervals:
-        pep_seq = "-" * interval_length + row['Peptide'] + "-" * interval_length
-        # print('pep_seq',pep_seq)
-        for asterisks, modif in enumerate(re.finditer('\*', pep_seq), 1):
-            # print('asterisks, modif', asterisks, modif)
-            if pep_seq[modif.span()[0] - 1] == modification_site:
-                # print('modif.span()',modif.span(),modif.span()[0])
-                interval_start = modif.span()[0] - interval_length - asterisks
-                interval_end = interval_start + 2 * interval_length + 1
-                # print('start & end',interval_start,interval_end)
-                if interval_start >= 0 and interval_length < len(pep_seq.replace('*', '')):
-                    intervals.append(pep_seq.replace('*', '')[interval_start: interval_end])
-                    # print('final_int',pep_seq.replace('*', '')[interval_start: interval_end])
+    # if not intervals:
+    pep_seq = row['Peptide']
+    # print('pep_seq',pep_seq)
+    for asterisks, modif in enumerate(re.finditer('\*', pep_seq), 1):
+        # print('asterisks, modif', asterisks, modif)
+        if pep_seq[modif.span()[0] - 1] == modification_site:
+            # print('modif.span()',modif.span(),modif.span()[0])
+            interval_start = modif.span()[0] - interval_length - asterisks
+            interval_end = interval_start + 2 * interval_length + 1
+            # print('start & end',interval_start,interval_end)
+            if interval_start >= 0 and interval_length < len(pep_seq.replace('*', '')):
+                intervals.append(pep_seq.replace('*', '')[interval_start: interval_end])
+            else:
+                logging.info('Can not take interval %s', row['Peptide'])
+                logging.info('try to find in Fasta')
+                for name, seq in bg_fasta.items():
+                    i = 0
+                    start = seq[i:].find(row['Peptide'].replace('*', ''))
+                    i = start
+                    while start >= 0:
+                        for asterisks, modif in enumerate(re.finditer('\*', row['Peptide']), 1):
+                            interval_start = i + modif.span()[0] - interval_length - asterisks
+                            interval_end = interval_start + 2 * interval_length + 1
+                            interval = seq[interval_start: interval_end]
+                            intervals.append(interval)
+                        start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
+                        i += start + 1
+        else:
+            logging.info('Peptide has another modification site %s', row['Peptide'])
+                # print('final_int',pep_seq.replace('*', '')[interval_start: interval_end])
     return intervals
 
 
