@@ -66,7 +66,7 @@ def fasta_match(row, bg_fasta, interval_length, modification_site):
                             fasta_intervals.append(interval)
                         start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
                         i += start + 1
-                if len(fasta_intervals) == 1:
+                if len(fasta_intervals) > 1:
                     logging.info('%s found in fasta.', row['Peptide'])
                     intervals.update(fasta_intervals)
         else:
@@ -100,15 +100,11 @@ def background_maker(args):
 
 #функции для валидации
 
-def aa_counter(col):
-    return pd.Series(Counter(col))
-
 
 def get_occurences(intervals_df, acids=ACIDS_LIST):
     logging.debug('Intervals list length:\n%s', len(intervals_df))
     occ = pd.DataFrame(index=acids)
-    occ[intervals_df.columns] = intervals_df.apply(aa_counter, axis=0)
-    # occ.to_csv(saving_file, sep='\t')
+    occ[intervals_df.columns] = intervals_df.apply(lambda x: pd.Series(Counter(x)), axis=0)
     return occ
 
 

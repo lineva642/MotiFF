@@ -13,73 +13,15 @@ import pandas as pd
 from scipy.stats import binom
 
 
-def get_binom_prob(fg_occ, bg_occ, bg_size, fg_size):
-    """
-    Parameters
-    ----------
-    fg_occ : DataFrame
-        matrix with aa occurences among foreground intervals
-    bg_occ : DataFrame
-        matrix with aa occurences among background peptides
-    Returns
-    -------
-    binom_prob : 2-d array
-        Calculated binomial probabilities of aa occurences.
-    """
-    bg_prob = bg_occ / bg_size
-    binom_prob = pd.DataFrame(binom.sf(fg_occ - 1, fg_size, bg_prob), columns=bg_prob.columns, index=bg_prob.index)
-    return binom_prob
-
-
-def find_motifs(binom_prob, fg_occ, mask, args):
-    """
-    Parameters
-    ----------
-    binom_prob : TYPE
-        binomial probabilities of aa occurences.
-    fg_occ : 2-d array
-        matrix with aa occurences among foreground intervals
-    mask : list[ tuples]
-        motif mask [(pos, aa), (pos, aa), ]
-    args : ArgumentParser
-        ArgumentParset with parameters
-
-    Returns
-    -------
-    motifs : List[List]
-        List with [motif, p_value, counts] structure
-    new_masks: List[List[Tuple]]
-        List of new masks. [[(pos, aa), (pos, aa)], [(pos, aa)], ]
-
-    """
-    aa_df = pd.DataFrame(np.array([np.array(fg_occ.index)] * fg_occ.shape[1]).T, index=fg_occ.index, columns=fg_occ.columns)
-    motifs = set()
-    new_masks = []
-    df_slice = aa_df[(binom_prob <= args.p_value) & (fg_occ >= args.occurrences)].apply(lambda x: x.dropna().to_dict(), axis=1)
-    motif = ['.'] * (2 * args.interval_length + 1)
-    for (pos, aa) in mask:
-        motif[pos + args.interval_length] = aa
-    for i in df_slice:
-        if i:
-            for pos, aa in i.items():
-                index = pos + args.interval_length
-                new_motif = motif[:]
-                if aa != '-' and motif[index] == '.':
-                    new_masks.append(mask + [(pos, aa)])
-                    new_motif[index] = aa
-                    mot = (''.join(new_motif).strip('.'), binom_prob.at[aa, pos], fg_occ.at[aa, pos])
-                    motifs.update((mot,))
-    return motifs, new_masks
-
-
 def get_df_mask(df, mask): 
     """
+    
     Parameters
     ----------
     df : DataFrame
         DF with intervals
-    mask : tuple
-        masks to apply
+    mask : Set[Tuple[int, str]]
+        Mask to apply. {(pos, aa)}
 
     Returns
     -------
@@ -88,40 +30,79 @@ def get_df_mask(df, mask):
 
     """
     f_mask = True
-    logging.debug(f'{mask=}')
     for i in [df[k] == v.upper() for k, v in mask]:
         f_mask &= i
     return f_mask
 
 
-def process_binom_stage(fg_intervals, bg_intervals, mask, args):
+def get_motif(fg_intervals, bg_intervals, mask, current_pval, pval_threshold, count_theshold):
     """
-    Finds motifs using Binomial probabilities.
+
     Parameters
     ----------
     fg_intervals : DataFrame
-    DF with foreground intervals.
+        DF with intervals.
     bg_intervals : DataFrame
-    DataFrame with foreground intervals.
-    mask : Tuple[Tuple[pos, aa]]
-        Motif mask. Tuple with fixed aa.
-    args : ArgumentParser
-        Parameters.
+        DF with intervals.
+    mask : Set[Tuple[int, str]]
+        Mask for motif. {(pos, aa)}
+    current_pval : float
+        current p_value for motif
+    pval_threshold : float
+        p_value threshold
+    count_theshold : int
+        minimum occurence to be considered for motif.
 
     Returns
     -------
-    List with motifs, Dict with motifs.
+    ans : List[List]
+        List with motifs.[[mask, fg_size, bg_size, current_pval],..]
 
     """
-    motif_l = args.interval_length * 2 + 1
-    fg_occ = utils.get_occurences(fg_intervals[get_df_mask(fg_intervals, mask)])
-    if fg_occ.sum().sum() > 0:
-        bg_occ = utils.get_occurences(bg_intervals[get_df_mask(bg_intervals, mask)])
-        binom_prob = get_binom_prob(fg_occ, bg_occ, len(bg_intervals), len(fg_intervals))
-        motifs, new_masks = find_motifs(binom_prob, fg_occ, mask, args)
-        return motifs, new_masks
+    fg_slice = fg_intervals[get_df_mask(fg_intervals, mask)]
+    bg_slice = bg_intervals[get_df_mask(bg_intervals, mask)]
+    fg_size, bg_size = fg_slice.shape[0], bg_slice.shape[0]
+    logging.debug(f'{mask=}, {current_pval=}, {pval_threshold=}')#' \n {fg_slice} \n {bg_slice}')
+    fg_occ, bg_occ = utils.get_occurences(fg_slice), utils.get_occurences(bg_slice)
+    fg_occ = fg_occ[fg_occ >= count_theshold]
+    bg_prob = bg_occ / bg_size
+    binom_prob = pd.DataFrame(binom.sf(fg_occ - 1, fg_size, bg_prob),
+                              columns=bg_prob.columns, index=bg_prob.index)
+    logging.debug(f"Sizes {fg_size=}, {bg_size=}")
+    min_aa, min_pos = binom_prob.stack().idxmin()
+    logging.debug(f"Candidate {min_aa=}, {min_pos=}", binom_prob.at[min_aa, min_pos])
+    next_pval = binom_prob.at[min_aa, min_pos] * current_pval
+    if binom_prob.at[min_aa, min_pos] < pval_threshold:
+        next_mask = mask | {(min_pos, min_aa)}
+        logging.debug(f'{mask=}, {next_mask=}, {fg_size}')
+        ans = get_motif(fg_slice, bg_slice, next_mask, next_pval, pval_threshold, count_theshold)
     else:
-        return [], {}
+        ans = [mask, fg_size, bg_size, current_pval]  
+    return ans
+
+
+def form_motif(mask, length):
+    """
+
+    Parameters
+    ----------
+    mask : Set[Tuple[int, str]]
+        Mask for motif. {(pos, aa)}
+    length : int
+        motif length = length * 2 + 1
+
+    Returns
+    -------
+    str
+        Motif.
+        
+    """
+    out = ['.'] * (2 * length + 1)
+    for (pos, aa) in mask:
+        if pos == 0:
+            aa = aa.lower()
+        out[pos + length] = aa
+    return ''.join(out)
 
 
 def binomial_alg(fg_intervals, bg_intervals, args):
@@ -137,29 +118,30 @@ def binomial_alg(fg_intervals, bg_intervals, args):
         Parameters
     Returns
     -------
-    DataFrame with all found motifs.
+    DataFrame 
+        Df with all found motifs.
 
     """
-    final_motifs = []
-    step = 1
-    motif = [(0, args.modification_site.lower()),]
-    motifs, masks = process_binom_stage(fg_intervals, bg_intervals, motif, args)
-    final_motifs.extend(motifs)
-    logging.info(f'{step = }, new motifs {pd.DataFrame(motifs)} ')
-    step += 1
+    current_pval = 1
+    pval_threshold = args.p_value
+    count_theshold = args.occurrences
+    motifs = []
+    initial_mask = {(0, args.modification_site)}
     while True:
-        tmp_mods = []
-        new_step_motifs = set()
-        for motif in masks:
-            new_motifs, new_masks = process_binom_stage(fg_intervals, bg_intervals, motif, args)
-            new_step_motifs.update(new_motifs)
-            tmp_mods.extend(new_masks)
-        logging.info(f'{step = }, new motifs {pd.DataFrame(new_step_motifs)} \n')
-        final_motifs.extend(list(new_step_motifs))
-        step += 1
-        if not new_masks:
-            break
+        motif = get_motif(fg_intervals, bg_intervals, initial_mask, current_pval, pval_threshold, count_theshold)
+        motif.append(fg_intervals.shape[0])
+        motif.append(bg_intervals.shape[0])
+        logging.debug("Motif found! ", motif)
+        logging.debug("=====================")
+        if motif[0] != initial_mask:
+            motifs.append(motif)
+            fg_intervals = fg_intervals[~get_df_mask(fg_intervals, motif[0])]
+            bg_intervals = bg_intervals[~get_df_mask(bg_intervals, motif[0])]
         else:
-            masks = tmp_mods
-    return pd.DataFrame(final_motifs)
-    
+            break
+        if fg_intervals.empty:
+            break
+    out = pd.DataFrame(motifs, columns=['motif', 'fg_matches', 'bg_matches', 'p_value', 'fg_size', 'bg_size'])
+    out['motif'] = out['motif'].apply(form_motif, args=[args.interval_length])
+    return out.loc[:,['motif', 'p_value', 'fg_matches', 'fg_size', 'bg_size', 'bg_matches']]
+

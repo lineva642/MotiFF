@@ -67,3 +67,6 @@ def main():
     
     output(args)        
     logging.info(msg='Program was finished successfully') 
+
+if __name__ == "__main__":
+    main()
