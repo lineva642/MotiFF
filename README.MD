@@ -1,17 +1,17 @@
 # MotiFF
-<!-- ___ -->
+
 An open source software for recognition of consensus motifs in proteomics
 ## Overview
-<!-- ___ -->
+
 **MotiFF** is a tool for large scale proteomics that discovers the enriched amino acid patterns containing modified amino acids in the results of proteomic analysis. MotiFF implements calculation of the binomial probabilities and χ2  criterion to identify statistically significant amino acid patterns or motifs for the modified peptides. The algorithm was implemented in Python as an open-source command-line tool available at https://github.com/lineva642/PTM.
 ## Installation
-<!-- ___ -->
+
 Download from Github repository https://github.com/lineva642/PTM. In the directory containing setup.py file run the following command:
 
     pip install .
 
 ## Usage
-<!-- ___ -->
+
     MotiFF [dataset] [fasta] [-h] [--name_sample NAME_SAMPLE] [--interval_length INTERVAL_LENGTH] [--modification MODIFICATION] [--modification_site MODIFICATION_SITE] [--working_dir WORKING_DIR] [--algorithm ALGORITHM] [--p_value P_VALUE] [--occurrences OCCURRENCES] [-v {0,1,2}]
     
     positional arguments:
@@ -39,10 +39,8 @@ Download from Github repository https://github.com/lineva642/PTM. In the directo
                           Output verbosity
                           
 ## Examples
-<!-- ___ -->
 
 ## Output files
-<!-- ___ -->
 MotiFF produces summary table (motifs.csv) with discovered amino acid motifs and additional information:
 
 | Column name | Description |
@@ -51,5 +49,5 @@ MotiFF produces summary table (motifs.csv) with discovered amino acid motifs and
 |p_value|Probability of the identified motif|
 |fg_matches|Number of modified peptides containing this enriched amino acid pattern|
 |fg_size|Number of modified peptides among which search is carried out|
-|bg_size|Number of FASTA peptides containing this enriched amino acid pattern|
-|bg_matches|Number of FASTA peptides among which search is carried out|
+|bg_size|Number of FASTA peptides among which search is carried out|
+|bg_matches|Number of FASTA peptides containing this enriched amino acid pattern|
