@@ -118,11 +118,8 @@ def peptides_table(args, sample_saving_dir, bg_fasta):
     logging.info('Peptide table contains %d peptides', Peptides.shape[0])
     logging.debug('Initial Peptides df:\n%s', Peptides.head())
     Peptides['fasta_match'] = Peptides.apply(fasta_match, args=[bg_fasta, args.interval_length, args.modification_site], axis=1)
-    # Peptides['unique'] = Peptides.apply(lambda x: True if len(x['fasta_match']) == 1 else False, axis=1)
-    # idPeptides = Peptides#[Peptides['unique'] == True]
     logging.info('Found %d peptides motifs', len(set(Peptides['fasta_match'].sum())))
     Peptides.to_csv(os.path.join(sample_saving_dir, 'peptide_identification.csv'), mode='w')
     logging.debug('Prepared Peptides df:\n%s', Peptides)
-    # print(Peptides)
     return Peptides    
 

@@ -8,6 +8,7 @@ Created on Wed Aug 12 13:36:07 2020
 import pandas as pd
 import argparse
 import logging
+import os
 import utils, binomial, chi2
 
 def main():
@@ -34,8 +35,6 @@ def main():
     logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level=levels[args.verbosity])
     logging.info(msg=u'Directories for result saving are created')
     
-    # experimental_dir = args.dataset
-    
     logging.debug(msg=u'Modified peptides dataframe is created')
     
     def output(args):
@@ -51,18 +50,14 @@ def main():
         if args.algorithm == "binom":
             logging.debug('Binomial algorithm is used.')  
             result = binomial.binomial_alg(fg_intervals, bg_intervals, args)
-            result.to_csv('Binom_motifs.csv', sep='\t')
+            result.to_csv(os.path.join(results_saving_dir, 'motifs.csv'),index=False)
             
         else:
             fg_intervals.fillna('-', inplace = True)
             bg_intervals.fillna('-', inplace = True)
             dataset_info = fg_intervals, bg_intervals
-            # print('fg_intervals', fg_intervals)
-            # print('bg_intervals', bg_intervals)
             fg_occ = utils.get_occurences(fg_intervals, acids=utils.ACIDS_LIST)
-            # print('fg_occ', fg_occ)
             bg_occ = utils.get_occurences(bg_intervals, acids=utils.ACIDS_LIST)
-            # print('bg_occ', bg_occ)
             chi2.chi2_alg(fg_occ, bg_occ, dataset_info, args, results_saving_dir)
     
     output(args)        

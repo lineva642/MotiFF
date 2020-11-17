@@ -35,13 +35,8 @@ def p_value(occurrences,background_n,interval_length,results_saving_dir):
     norm_expected=(background_n/all_back)*all_exp
     
     p_value=chi2_calc(occurrences,norm_expected,interval_length)
-                
-    #результат нужно сохранить
-    p_value.to_csv(os.path.join(results_saving_dir, 'p_value.csv'), sep='\t')
 
     logging.debug("P-value matrix\n%s", p_value)
-    
-    # logging.debug(msg=u'p-value matrix was created')
     
     return p_value
 
@@ -63,14 +58,14 @@ def primary_motifs(occurrences,background_n,p_value,acids,args,results_saving_di
     
                     motif = ''.join(l_motif).strip('.')
                     
-                    table = table.append({'Letter motif': motif,'Number motif':n_motif,
-                    'Observed':occurrences[pos][aa],'Expected':'-','Fasta':background_n[pos][aa],
-                                        'p-value':p_value[pos][aa]},
-                                            ignore_index = True)
+                    table=table.append({'motif':motif,'Number motif':n_motif,
+                         'p_value':p_value[pos][aa], 'fg_matches':occurrences[pos][aa],
+                         'fg_size':occurrences[args.interval_length].sum(), 
+                         'bg_size':background_n[args.interval_length].sum(),
+                         'bg_matches':background_n[pos][aa]},ignore_index = True)
 
     vector = np.array(table['Number motif'].tolist())
-    logging.debug("Primary motifs:\n%s", table['Letter motif'])
-    utils.saving_table(results_saving_dir,table,args.interval_length,'primary')
+    logging.debug("Primary motifs:\n%s", table['motif'])
                
     return vector,table         
 
@@ -82,7 +77,7 @@ def counter(args, vector, acid_location, acid_number, dataset_info, previous_inf
     for i,ik in zip(acid_location, acid_number):
         int_table=int_table[(int_table[i-args.interval_length]==acids[ik-1])]
         back_table=back_table[(back_table[i-args.interval_length]==acids[ik-1])]         
-        # print('acid',acids[ik-1])
+
     prev_observed, prev_fasta = previous_info    
     observed=len(int_table)
     fasta = len(back_table)
@@ -135,10 +130,11 @@ def multiplying_matrix(args, vector_1, vector_2):
     return matrix
 
 def table_creator():
-    
-    result=pd.DataFrame({'Letter motif':np.array([]),'Number motif':np.array([]),
-                                                'Observed':np.array([]),'Expected':np.array([]),
-                                                                    'p-value':np.array([])}) 
+     
+    result=pd.DataFrame({'motif':np.array([]),'Number motif':np.array([]),
+                         'p_value':np.array([]), 'fg_matches':np.array([]),
+                         'fg_size':np.array([]), 'bg_size':np.array([]),
+                         'bg_matches':np.array([])}) 
     return result
 
 def motif_counter(args,vector,motif,result,dataset_info, previous_info):
@@ -146,12 +142,11 @@ def motif_counter(args,vector,motif,result,dataset_info, previous_info):
     observed, expected, fasta, p_value=chi2_motifs(args, vector, acid_location, acid_number , dataset_info, previous_info)
     if p_value!=None:
         motif_l=letter_motif(args,acid_location, acid_number,acids=utils.ACIDS_LIST)
-        # print('motif_l',motif_l)
-        result=result.append({'Letter motif':motif_l,'Number motif':motif,
-                        'Observed':observed,'Expected':expected,'Fasta':fasta,
-                                            'p-value':p_value},
-                                                ignore_index = True)
-    
+
+        result=result.append({'motif':motif_l,'Number motif':motif,
+                         'p_value':p_value, 'fg_matches':observed,
+                         'fg_size':previous_info[0], 'bg_size':previous_info[1],
+                         'bg_matches':fasta}, ignore_index = True)
     return result
 
 def double_motifs(vector, dataset_info, results_saving_dir, args, single, acids=utils.ACIDS_LIST): 
@@ -167,18 +162,17 @@ def double_motifs(vector, dataset_info, results_saving_dir, args, single, acids=
             #нужны элементы матрицы с одними нулями
             if (elem.any())==False:
                 motif=vector[i]+vector[j]
-                prev_fg_occ = single['Observed'][i]
-                prev_bg_occ = single[ 'Fasta'][i]
+                prev_fg_occ = single['fg_matches'][i]
+                prev_bg_occ = single['bg_matches'][i]
                 previous_info = prev_fg_occ, prev_bg_occ
                 result = motif_counter(args,vector,motif,result,dataset_info, previous_info)
 
             j+=1
-            
-    b=len(result['Observed'].values)
-    table = (result.loc[result['p-value']<args.p_value/b][result['Observed']>=args.occurrences]).reset_index()        
+
+    b=len(result['fg_matches'].values)
+    table = (result.loc[result['p_value']<args.p_value/b][result['fg_matches']>=args.occurrences]).reset_index()        
     
-    logging.debug("Double motifs:\n%s", table['Letter motif'])
-    utils.saving_table(results_saving_dir,table,args.interval_length,'double')
+    logging.debug("Double motifs:\n%s", table['motif'])
                                                                      
     return table
    
@@ -198,14 +192,14 @@ def n_motifs_result(args, n_vector, vector, previous_table, matrix, result, data
             if (elem.any())==False:
                 motif=vector[j]+n_vector[i]
             
-                prev_fg_occ = previous_table['Observed'][i]
-                prev_bg_occ = previous_table[ 'Fasta'][i]
+                prev_fg_occ = previous_table['fg_matches'][i]
+                prev_bg_occ = previous_table['bg_matches'][i]
                 previous_info = prev_fg_occ, prev_bg_occ
               
                 result = motif_counter(args,n_vector,motif,result,dataset_info,previous_info)
-                
-    b=len(result['Observed'].values)
-    table = (result.loc[result['p-value']<args.p_value/b][result['Observed']>=args.occurrences]).reset_index()        
+                        
+    b=len(result['fg_matches'].values)
+    table = (result.loc[result['p_value']<args.p_value/b][result['fg_matches']>=args.occurrences]).reset_index()
     return table           
     
 
@@ -216,8 +210,8 @@ def get_motifs(args, vector, previous_motifs_table, dataset_info, results_saving
     matrix = multiplying_matrix(args, previous_vector, vector)
     result = table_creator()
     result = n_motifs_result(args, previous_vector, vector, previous_motifs_table, matrix, result, dataset_info)
-    result.drop_duplicates(subset = ['Letter motif'], inplace = True)
-    logging.info("%d - AA motifs:\n%s" % (step, result['Letter motif']))
+    result.drop_duplicates(subset = ['motif'], inplace = True)
+    logging.info("%d - AA motifs:\n%s" % (step, result['motif']))
 
     return result
 
@@ -225,8 +219,8 @@ def chi2_alg(fg_occ, bg_occ, dataset_info, args, results_saving_dir):
     
     p_values = p_value(fg_occ, bg_occ, args.interval_length, results_saving_dir)
     vector,single = primary_motifs(fg_occ, bg_occ ,p_values, utils.ACIDS_LIST, args, results_saving_dir)
-    # dataset_info = fg_intervals, bg_intervals
     double=double_motifs(vector, dataset_info, results_saving_dir, args, single, acids=utils.ACIDS_LIST)   
+    result_table = pd.concat([single, double], ignore_index = True)
     previous_motifs_table = double
     step = 3
     while True:
@@ -234,8 +228,9 @@ def chi2_alg(fg_occ, bg_occ, dataset_info, args, results_saving_dir):
 
         if new_motifs_table.empty:
             break
-        else:
-
-            utils.saving_table(results_saving_dir, new_motifs_table, args.interval_length,' '.join([str(step),'AA motif']))                    
+        else:                  
+            result_table = pd.concat([result_table, new_motifs_table], ignore_index = True)
             previous_motifs_table = new_motifs_table
             step +=1
+            
+    result_table[['motif','p_value','fg_matches','fg_size','bg_size','bg_matches']].to_csv(os.path.join(results_saving_dir, 'motifs.csv'),index=False)            
