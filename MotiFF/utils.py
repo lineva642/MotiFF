@@ -34,7 +34,7 @@ def saving(args):
     # logging.info(u'Directories for result saving are created')       
     return  sample_saving_dir, results_saving_dir
 
-
+#TODO: check this function
 def fasta_match(row, bg_fasta, interval_length, modification_site):
     """Unless takes interval in the peptides, tries to find peptide in Fasta"""
     intervals = set()
@@ -66,7 +66,7 @@ def fasta_match(row, bg_fasta, interval_length, modification_site):
                             fasta_intervals.append(interval)
                         start = seq[i + 1:].find(row['Peptide'].replace('*', ''))
                         i += start + 1
-                if len(fasta_intervals) > 1:
+                if len(fasta_intervals) > 0:
                     logging.info('%s found in fasta.', row['Peptide'])
                     intervals.update(fasta_intervals)
         else:
@@ -108,9 +108,9 @@ def get_occurences(intervals_df, acids=ACIDS_LIST):
     return occ
 
 
-def saving_table(results_saving_dir, result, interval_length, name):
-    path=os.path.join(results_saving_dir, 'table' + str(interval_length) + '_' + name + '.csv')
-    result.to_csv(path)   
+# def saving_table(results_saving_dir, result, interval_length, name):
+#     path=os.path.join(results_saving_dir, 'table' + str(interval_length) + '_' + name + '.csv')
+#     result.to_csv(path)   
  
     
 def peptides_table(args, sample_saving_dir, bg_fasta):

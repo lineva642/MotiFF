@@ -30,37 +30,23 @@ def main():
     parser.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity', required=False)
     args = parser.parse_args()
     
-    
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level=levels[args.verbosity])
     logging.info(msg=u'Directories for result saving are created')
-    
     logging.debug(msg=u'Modified peptides dataframe is created')
+    sample_saving_dir, results_saving_dir = utils.saving(args)
+    bg_intervals, bg_fasta = utils.background_maker(args)
+    idPeptides = utils.peptides_table(args, sample_saving_dir, bg_fasta)
+    fg_intervals = pd.DataFrame([list(i) for i in idPeptides['fasta_match'].sum()], 
+                                columns=range(-args.interval_length, args.interval_length + 1))
     
-    def output(args):
-        
-        sample_saving_dir, results_saving_dir = utils.saving(args)
-        bg_intervals, bg_fasta = utils.background_maker(args)
-        idPeptides = utils.peptides_table(args, sample_saving_dir, bg_fasta)
-        fg_intervals = pd.DataFrame([list(i) for i in idPeptides['fasta_match'].sum()], 
-                                    columns=range(-args.interval_length, args.interval_length + 1))
-        
-        logging.debug("Final idPeptides table:\n%s", idPeptides.head())
-    
-        if args.algorithm == "binom":
-            logging.debug('Binomial algorithm is used.')  
-            result = binomial.binomial_alg(fg_intervals, bg_intervals, args)
-            result.to_csv(os.path.join(results_saving_dir, 'motifs.csv'),index=False)
-            
-        else:
-            fg_intervals.fillna('-', inplace = True)
-            bg_intervals.fillna('-', inplace = True)
-            dataset_info = fg_intervals, bg_intervals
-            fg_occ = utils.get_occurences(fg_intervals, acids=utils.ACIDS_LIST)
-            bg_occ = utils.get_occurences(bg_intervals, acids=utils.ACIDS_LIST)
-            chi2.chi2_alg(fg_occ, bg_occ, dataset_info, args, results_saving_dir)
-    
-    output(args)        
+    logging.debug("Final idPeptides table:\n%s", idPeptides.head())
+    if args.algorithm == "binom":
+        logging.debug('Binomial algorithm is used.')  
+        result = binomial.binomial_alg(fg_intervals, bg_intervals, args)
+        result.to_csv(os.path.join(results_saving_dir, 'motifs.csv'), index=False)  
+    else:
+        chi2.chi2_alg(fg_intervals, bg_intervals, args, results_saving_dir)
     logging.info(msg='Program was finished successfully') 
 
 if __name__ == "__main__":
